@@ -1,0 +1,13 @@
+{
+  "_comment": "NeuroCart CRE Workflow Configuration — update addresses after deployment",
+  "schedule": "*/1 * * * *",
+  "jobEscrowAddress": "FILL_IN_AFTER_DEPLOY",
+  "functionsAddress": "FILL_IN_AFTER_DEPLOY",
+  "chainId": 421614,
+  "chainSelector": "3478487238524512106",
+  "rpcUrl": "https://sepolia-rollup.arbitrum.io/rpc",
+  "qualityThreshold": 80,
+  "maxJobsPerRun": 5,
+  "anthropicModel": "claude-haiku-4-5-20251001",
+  "_note": "anthropicApiKey is injected via CRE secrets — never put in config.json"
+}

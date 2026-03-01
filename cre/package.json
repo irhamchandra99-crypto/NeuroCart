@@ -1,0 +1,25 @@
+{
+  "name": "neurocart-cre-workflow",
+  "version": "1.0.0",
+  "description": "NeuroCart CRE Workflow — AI quality verification orchestration layer",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc --noEmit && echo 'TypeScript OK'",
+    "simulate": "cre workflow simulate --workflow src/workflow.ts --config cre-config.json",
+    "compile": "cre workflow compile --workflow src/workflow.ts --out dist/workflow.wasm"
+  },
+  "dependencies": {
+    "@chainlink/cre-sdk": "^1.1.2",
+    "viem": "^2.0.0",
+    "zod": "^3.22.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.0",
+    "@types/node": "^20.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "bun": ">=1.2.0"
+  }
+}

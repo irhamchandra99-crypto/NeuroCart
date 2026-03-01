@@ -64,6 +64,9 @@ contract NeuroCartFunctions is FunctionsClient {
     /// @notice Platform owner
     address public platformOwner;
 
+    /// @notice CRE workflow address (alternative verification path)
+    address public creWorkflow;
+
     // =========================================================================
     // EVENTS
     // =========================================================================
@@ -213,5 +216,29 @@ contract NeuroCartFunctions is FunctionsClient {
 
     function getRequestJobId(bytes32 requestId) external view returns (uint256) {
         return requestToJobId[requestId];
+    }
+
+    // =========================================================================
+    // CRE WORKFLOW INTEGRATION
+    // =========================================================================
+
+    /// @notice Set authorized CRE workflow address
+    function setCREWorkflow(address _cre) external onlyPlatformOwner {
+        creWorkflow = _cre;
+    }
+
+    /// @notice Called by CRE workflow to submit a quality score directly
+    /// @dev Alternative verification path: CRE orchestrates Claude API call off-chain
+    ///      and submits the verified score here, which then settles the escrow
+    /// @param jobId  The job to finalize
+    /// @param score  Quality score 0-100 from Claude API (via CRE DON)
+    function receiveCREScore(uint256 jobId, uint8 score) external {
+        require(msg.sender == creWorkflow, "Only authorized CRE workflow");
+        require(escrowContract != address(0), "Escrow not set");
+
+        bool passed = score >= QUALITY_THRESHOLD;
+        IJobEscrowFinalize(escrowContract).finalizeVerification(jobId, passed, score);
+
+        emit VerificationFulfilled(bytes32(jobId), jobId, score, passed);
     }
 }
