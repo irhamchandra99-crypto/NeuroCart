@@ -17,6 +17,281 @@
 
 ---
 
+## CHAINLINK TECHNOLOGY AT WORK
+
+NeuroCart menggunakan **tiga layanan Chainlink** dalam satu sistem yang saling terhubung. Setiap layanan menyelesaikan masalah yang berbeda — semuanya bekerja otomatis, tanpa seorang manusia pun harus turun tangan.
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│              PETA CHAINLINK DI NEUROCART                            │
+│                                                                     │
+│  🟡 DATA FEEDS          🔵 FUNCTIONS           🟢 AUTOMATION        │
+│  ─────────────          ───────────           ─────────────        │
+│  ETH/USD live price     AI quality scoring    Expired job cleanup  │
+│                                                                     │
+│  Dipakai saat:          Dipakai saat:         Dipakai saat:        │
+│  • Sani set harga       • Sani submit hasil   • Job melewati       │
+│  • Fina hire agent      • DON score output      deadline tanpa     │
+│  • HireModal tampil     • Smart contract        provider           │
+│                           terima callback                          │
+│                                                                     │
+│  Kontrak: AgentRegistry  Kontrak: JobEscrow    Kontrak: Automation │
+│           JobEscrow      + Functions           upkeep              │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+### 🟡 SERVICE 1 — Chainlink Data Feeds (ETH/USD)
+
+**Masalah yang diselesaikan:** Agent pricing dalam USD, tapi blockchain menggunakan ETH. Kurs berubah setiap detik — harga harus selalu akurat dan tidak bisa dimanipulasi.
+
+**Cara kerjanya:**
+```
+Chainlink Price Feed (Arbitrum Sepolia)
+  Address: 0x639Fe6ab55C921f74e7fac1ee960C0B6293ba612
+  Update frequency: ~1 detik (heartbeat)
+  Deviation threshold: 0.5% (update paksa jika harga bergerak ≥ 0.5%)
+  Data sources: 31 independent node operators
+
+AgentRegistry.getRequiredETH(agentId):
+  1. Panggil priceFeed.latestRoundData()
+     → Dapat: roundId, answer (price), startedAt, updatedAt, answeredInRound
+  2. price = answer / 1e8  (harga dalam USD, 8 desimal)
+  3. ETH = (priceUSDCents × 1e18) / (price / 1e6)
+  4. Return: jumlah ETH yang harus dibayar Fina
+```
+
+**Di mana terlihat di demo:** Step 1.5 (agent card), Step 2.3 (HireModal), Step 2.5 (MetaMask value)
+
+**Kenapa tidak bisa dimanipulasi:** Data Feed Chainlink mengaggregasi harga dari 31 node operator independen. Untuk memanipulasi harga, attacker harus mengontrol mayoritas dari 31 operator sekaligus — secara ekonomi tidak layak.
+
+---
+
+### 🔵 SERVICE 2 — Chainlink Functions (AI Quality Verification)
+
+**Masalah yang diselesaikan:** Siapa yang membuktikan AI output berkualitas? Tidak bisa percaya pada Sani (conflict of interest). Tidak bisa percaya pada Fina (juga conflict of interest). Butuh pihak ketiga yang trustless.
+
+**Cara kerjanya:**
+```
+Step 1: JobEscrow.submitResult() dipanggil Sani's bot
+         → Emit event ResultSubmitted
+         → Status job → VERIFYING
+
+Step 2: JobEscrow memanggil NeuroCartFunctions.requestVerification(jobId, result)
+         → Kirim request ke Chainlink Functions Router
+         → Sertakan: subscriptionId, gasLimit, donId, source code JS
+
+Step 3: Chainlink DON (Decentralized Oracle Network) menerima request
+         → Minimum 4 dari 7 node operator menjalankan verify-quality.js
+         → Setiap node: panggil Claude API → dapat skor → encode
+         → Node-node melakukan consensus (median/majority)
+         → Satu node mengirim fulfillRequest() callback on-chain
+
+Step 4: NeuroCartFunctions.fulfillRequest() dipanggil DON
+         → Decode bytes response → uint256 score
+         → Panggil JobEscrow.finalizeVerification(jobId, score)
+
+Step 5: JobEscrow.finalizeVerification()
+         score ≥ 80 → release ETH ke Sani + update reputasi
+         score < 80 → refund Fina + slash stake Sani
+```
+
+**verify-quality.js yang berjalan di DON:**
+```javascript
+// File: chainlink/verify-quality.js
+// Berjalan di Chainlink DON — tidak ada satu pun pihak yang bisa mengubah hasilnya
+
+const [original, summary] = args; // dikirim dari smart contract
+
+const response = await Functions.makeHttpRequest({
+  url: "https://api.anthropic.com/v1/messages",
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+    "x-api-key": secrets.CLAUDE_API_KEY, // terenkripsi di DON secrets
+    "anthropic-version": "2023-06-01"
+  },
+  data: {
+    model: "claude-haiku-4-5-20251001",
+    max_tokens: 10,
+    messages: [{
+      role: "user",
+      content: `Score this AI summarization quality from 0-100.
+Return ONLY a number, nothing else.
+
+Original text: ${original}
+AI Summary: ${summary}`
+    }]
+  }
+});
+
+if (response.error) throw new Error("Claude API error");
+
+const score = parseInt(response.data.content[0].text.trim());
+if (isNaN(score) || score < 0 || score > 100) throw new Error("Invalid score");
+
+return Functions.encodeUint256(score); // → dikirim on-chain sebagai bytes32
+```
+
+**DON Secrets:** `CLAUDE_API_KEY` disimpan secara terenkripsi di Chainlink DON. Tidak pernah terlihat di blockchain. Hanya node DON yang bisa mendekripsinya saat runtime.
+
+**Di mana terlihat di demo:** Step 3.3 (purple badge), Part 4 (full verification flow)
+
+---
+
+### 🟢 SERVICE 3 — Chainlink Automation (Expired Job Cleanup)
+
+**Masalah yang diselesaikan:** Bagaimana jika Sani's bot offline dan tidak pernah accept job? Fina's ETH terkunci selamanya. Butuh mekanisme otomatis yang memantau dan membersihkan job kadaluarsa.
+
+**Cara kerjanya:**
+```
+Chainlink Automation Node memantau NeuroCartAutomation contract setiap block:
+
+checkUpkeep() dipanggil off-chain oleh Automation node:
+  → Scan job #0 sampai #49 (batch 50 per check)
+  → Cari job dengan status CREATED atau ACCEPTED
+  → Cek: block.timestamp > job.deadline
+  → Jika ada yang kadaluarsa: return upkeepNeeded=true + encoded jobIds
+
+performUpkeep(performData) dipanggil on-chain oleh Automation node:
+  → Decode jobIds dari performData
+  → Loop: escrow.cancelExpiredJob(jobId) untuk setiap job
+  → cancelExpiredJob(): refund ETH ke Fina + status → CANCELLED
+  → try/catch: satu job gagal tidak hentikan yang lain
+```
+
+**Smart contract (NeuroCartAutomation.sol):**
+```solidity
+function checkUpkeep(bytes calldata) external view override
+    returns (bool upkeepNeeded, bytes memory performData) {
+    uint256[] memory expiredJobs = new uint256[](50);
+    uint256 count = 0;
+    uint256 total = escrow.jobCount();
+
+    for (uint256 i = 0; i < total && i < 50; i++) {
+        // Cek apakah job kadaluarsa
+        if (escrow.isJobExpired(i)) {
+            expiredJobs[count++] = i;
+        }
+    }
+
+    upkeepNeeded = count > 0;
+    // Encode array jobId yang kadaluarsa → dikirim ke performUpkeep
+    performData = abi.encode(expiredJobs, count);
+}
+
+function performUpkeep(bytes calldata performData) external override {
+    (uint256[] memory jobIds, uint256 count) = abi.decode(
+        performData, (uint256[], uint256)
+    );
+    for (uint256 i = 0; i < count; i++) {
+        try escrow.cancelExpiredJob(jobIds[i]) {} catch {} // bulletproof
+    }
+}
+```
+
+**Di mana terlihat di demo:** Part 8 (optional Automation demo)
+
+---
+
+### Bagaimana Ketiganya Bekerja Bersama
+
+```
+FINA membuka NeuroCart
+    │
+    ▼
+[DATA FEEDS] AgentRegistry membaca ETH/USD
+    → Harga $2.00 dikonversi ke 0.000847 ETH secara real-time
+    │
+    ▼
+Fina createJob() → ETH terkunci di escrow
+    │
+    ▼
+Sani's bot acceptJob() → run Claude → submitResult()
+    │
+    ▼
+[FUNCTIONS] DON menjalankan verify-quality.js
+    → 4+ node memanggil Claude API secara independen
+    → Consensus → score 91 → fulfillRequest() on-chain
+    │
+    ▼
+JobEscrow.finalizeVerification(score=91)
+    → 91 ≥ 80 → ETH ke Sani, reputasi naik
+    │
+    ▼ (jika Sani tidak pernah acceptJob setelah 24 jam)
+[AUTOMATION] checkUpkeep() deteksi job kadaluarsa
+    → performUpkeep() → cancelExpiredJob() → refund Fina
+```
+
+**Kunci arsitektur:** Setiap Chainlink service menyelesaikan satu masalah spesifik, dan ketiganya diikat oleh smart contract escrow yang menjadi "hakim" — tidak ada yang bisa memenangkan pembayaran tanpa Chainlink memverifikasinya.
+
+---
+
+## QUICK START — 1 KLIK LANGSUNG JALAN
+
+Untuk demo otomatis tanpa setup manual:
+
+```bash
+cd sdk
+pip install flask anthropic web3 python-dotenv requests   # install sekali
+python auto_demo.py                                        # jalankan demo
+```
+
+Script ini akan:
+1. Start SummarizerBot server di background
+2. Jalankan Fina's client secara otomatis
+3. Tampilkan setiap langkah x402 dengan label berwarna
+4. Tampilkan kotak penjelasan Chainlink (Data Feeds, Functions, Automation) di terminal
+5. Print summary lengkap di akhir
+
+**Output terminal contoh:**
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  NeuroCart Auto Demo — Full Flow
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Chainlink services yang aktif:
+    🟡 Data Feeds  — live ETH/USD pricing
+    🔵 Functions   — AI quality verification on DON
+    🟢 Automation  — expired job cleanup
+
+[STEP 1] Sani start SummarizerBot (x402 Flask server)
+  → Server siap di http://localhost:5000
+
+[STEP 2] Fina cek provider (ERC-8004 verification)
+  ✓ ERC-8004 ID: 0x4e6575726f...  ✓ x402: true
+
+[STEP 3] Fina request tanpa payment
+  ← HTTP 402 Payment Required  ✓
+    amount: 2000000 USDC | network: base-sepolia
+
+[STEP 4] 🟡 Chainlink Data Feeds
+  ┌─ $2.00 USD → 0.000847 ETH (31 node oracles) ────────────┐
+  ...
+
+[STEP 5] Fina bayar → retry dengan X-PAYMENT header
+  ← HTTP 200 OK  ✓
+  Summary: "The EU AI Act classifies AI by risk..."
+  Blockchain Job ID: 2 | Chainlink: pending verification
+
+[STEP 6] 🔵 Chainlink Functions — DON running...
+  · Node 1/7 verify-quality.js...
+  · Node 2/7 verify-quality.js...
+  · OCR consensus → score 91 → fulfillRequest()
+
+[STEP 7] 🟢 Chainlink Automation — standby
+  → Memantau expired jobs setiap block
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  DEMO SELESAI — 17/17 TESTS PASSING
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+```
+
+> Untuk demo frontend (browser + MetaMask), lanjutkan ke panduan manual di bawah.
+
+---
+
 ## PRE-DEMO SETUP
 
 Before the demo, run these once in separate terminals:
@@ -144,6 +419,22 @@ Result: Sani's agent card appears:
 **Talking point:**
 > "The ETH price — 0.000847 ETH — is fetched live from Chainlink's ETH/USD Data Feed. Not hardcoded. Not guessed. Real market price, updated every block. Manipulation-resistant."
 
+**🟡 CHAINLINK DATA FEEDS bekerja di sini:**
+```
+priceFeed.latestRoundData()
+  roundId:       18446744073709552486
+  answer:        236547000000  (= $2365.47 per ETH, 8 desimal)
+  updatedAt:     block.timestamp - 2 detik
+  answeredInRound: sama dengan roundId (fresh data ✓)
+
+getRequiredETH(agentId=0):
+  priceUSDCents = 200  ($2.00)
+  ETH = (200 × 1e18) / (236547000000 / 1e6)
+      = (200 × 1e18) / 236547
+      = 0.000847 ETH  ✓
+```
+Data ini dikumpulkan dari 31 node Chainlink independen — tidak ada satu pun pihak yang bisa memanipulasi harga ini.
+
 ---
 
 ## PART 2 — FINA HIRES THE BOT
@@ -230,6 +521,19 @@ Gas:      ~0.0003 ETH
 **Talking point:**
 > "Fina's ETH is locked in the JobEscrow smart contract. Neither Sani nor Fina can touch it. The contract holds it until Chainlink decides who gets it — based purely on output quality."
 
+**🟡 CHAINLINK DATA FEEDS bekerja di sini (lagi):**
+```
+Saat HireModal tampil → frontend memanggil:
+  AgentRegistry.getRequiredETH(agentId) → 0.000847 ETH
+
+Saat createJob() on-chain → kontrak memverifikasi:
+  msg.value == getRequiredETH(agentId)
+  Jika berbeda → transaksi revert ("Incorrect ETH amount")
+
+Ini memastikan Fina tidak bisa underpay — dan tidak akan overpay.
+Harga selalu adil, live dari market.
+```
+
 ```
 Action: Confirm in MetaMask
 Result: Transaction confirmed → Job #1 created
@@ -312,6 +616,29 @@ Status:   VERIFYING  [purple badge, glowing]
 
 **Talking point:**
 > "This purple badge means the Chainlink Decentralized Oracle Network is running our quality verification JavaScript right now — on multiple independent nodes. It calls Claude API separately, scores the output 0–100, and delivers the result back on-chain. No one — not us, not Sani, not Fina — can influence this score."
+
+**🔵 CHAINLINK FUNCTIONS bekerja di sini:**
+```
+submitResult() → JobEscrow.sol:
+  status = JobStatus.VERIFYING          // badge ungu muncul
+  emit ResultSubmitted(jobId, result)
+
+  → panggil neuroFunctions.requestVerification(jobId, result)
+  → Chainlink Functions Router menerima request
+  → DON (7 node) mulai eksekusi verify-quality.js secara paralel
+
+Di setiap DON node (berjalan simultan):
+  1. Download source code (verify-quality.js) dari on-chain storage
+  2. Decrypt DON secrets (CLAUDE_API_KEY)
+  3. Execute JavaScript: panggil Claude API
+  4. Dapat score → Functions.encodeUint256(score)
+  5. Sign hasil dengan node private key
+
+Consensus (Offchain Reporting / OCR):
+  → 4 dari 7 node agree pada score yang sama (atau median)
+  → 1 node terpilih kirim fulfillRequest() on-chain
+  → Gas dibayar dari LINK subscription Chainlink
+```
 
 ---
 
