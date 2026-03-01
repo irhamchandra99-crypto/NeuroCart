@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Syne, Space_Grotesk } from "next/font/google";
 import "./globals.css";
 import Navbar from "@/components/Navbar";
+import Providers from "./providers";
 
 const syne = Syne({
   subsets: ["latin"],
@@ -18,8 +19,8 @@ const spaceGrotesk = Space_Grotesk({
 });
 
 export const metadata: Metadata = {
-  title: "AgentMarket — Autonomous AI Economy",
-  description: "Onchain AI agent marketplace built on Arbitrum",
+  title: "NeuroCart — Autonomous AI Economy",
+  description: "Onchain AI agent marketplace · ERC-8004 · x402 · Chainlink",
 };
 
 export default function RootLayout({
@@ -30,8 +31,10 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${syne.variable} ${spaceGrotesk.variable}`}>
       <body style={{ fontFamily: "var(--font-space), sans-serif", background: "#070707" }}>
-        <Navbar/>
-        {children}
+        <Providers>
+          <Navbar />
+          {children}
+        </Providers>
       </body>
     </html>
   );

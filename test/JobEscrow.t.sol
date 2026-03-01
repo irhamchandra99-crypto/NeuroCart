@@ -5,204 +5,214 @@ import {Test} from "forge-std/Test.sol";
 import {AgentRegistry} from "../src/AgentRegistry.sol";
 import {JobEscrow} from "../src/JobEscrow.sol";
 
+contract MockV3Aggregator {
+    function latestRoundData() external view returns (uint80, int256, uint256, uint256, uint80) {
+        return (1, 300000000000, block.timestamp, block.timestamp, 1);
+    }
+}
+
+contract MockUSDC {
+    mapping(address => uint256) public balanceOf;
+    mapping(address => mapping(address => uint256)) public allowance;
+
+    function mint(address to, uint256 amount) external { balanceOf[to] += amount; }
+    function approve(address spender, uint256 amount) external returns (bool) {
+        allowance[msg.sender][spender] = amount; return true;
+    }
+    function transferFrom(address from, address to, uint256 amount) external returns (bool) {
+        require(allowance[from][msg.sender] >= amount, "Allowance tidak cukup");
+        allowance[from][msg.sender] -= amount;
+        balanceOf[from] -= amount;
+        balanceOf[to] += amount;
+        return true;
+    }
+    function transfer(address to, uint256 amount) external returns (bool) {
+        balanceOf[msg.sender] -= amount;
+        balanceOf[to] += amount;
+        return true;
+    }
+}
+
+contract MockFunctions {
+    JobEscrow public escrow;
+
+    function setEscrow(address _escrow) external { escrow = JobEscrow(_escrow); }
+
+    function requestVerification(uint256 jobId, string calldata, string calldata)
+        external returns (bytes32)
+    {
+        return keccak256(abi.encodePacked(jobId, block.timestamp));
+    }
+
+    function simulateFulfill(uint256 jobId, bool passed, uint8 score) external {
+        escrow.finalizeVerification(jobId, passed, score);
+    }
+}
+
 contract JobEscrowTest is Test {
 
     AgentRegistry public registry;
     JobEscrow public escrow;
+    MockV3Aggregator public priceFeed;
+    MockUSDC public usdc;
+    MockFunctions public mockFunctions;
 
-    // Akun simulasi
-    address public alice = makeAddr("alice"); // client — yang buat job
-    address public bob = makeAddr("bob");     // provider — yang ngerjain job
-    address public charlie = makeAddr("charlie"); // orang random
-    address public platform = makeAddr("platform");
+    address public admin   = makeAddr("admin");
+    address public alice   = makeAddr("alice");
+    address public bob     = makeAddr("bob");
+    address public charlie = makeAddr("charlie");
 
-    // Data agent bob
     uint256 public bobAgentId;
 
-    // Hash yang disepakati di awal
-    bytes32 public agreedHash = keccak256("hasil transkripsi yang benar");
-
     function setUp() public {
-        // Deploy kedua contract
-        registry = new AgentRegistry();
-        escrow = new JobEscrow(address(registry), platform);
-        vm.deal(address(this), 1 ether);
+        vm.deal(admin, 1 ether);
+        vm.deal(alice, 2 ether);
+        vm.deal(bob, 2 ether);
 
-        // Kasih ETH palsu ke alice dan bob untuk simulasi
-        // vm.deal = cheat code Foundry untuk set balance wallet
-        vm.deal(alice, 1 ether);
-        vm.deal(bob, 1 ether);
+        // Deploy semua contract sebagai admin
+        vm.startPrank(admin);
+        priceFeed = new MockV3Aggregator();
+        usdc = new MockUSDC();
+        registry = new AgentRegistry(address(priceFeed));
+        escrow = new JobEscrow(address(registry), admin, address(usdc));
+        mockFunctions = new MockFunctions();
 
-        // Bob register agent di registry
+        // Wiring
+        registry.setEscrowContract(address(escrow));
+        escrow.setFunctionsContract(address(mockFunctions));
+        mockFunctions.setEscrow(address(escrow));
+        vm.stopPrank();
+
+        // Bob register agent
         string[] memory skills = new string[](1);
-        skills[0] = "transcription";
+        skills[0] = "summarization";
 
         vm.prank(bob);
-        bobAgentId = registry.registerAgent(
-            "TranscriberBot",
-            skills,
-            0.01 ether,
-            "https://bob-agent.com/api"
+        (bobAgentId, ) = registry.registerAgent{value: 0.01 ether}(
+            "SummarizerBot", skills, 200,
+            "https://bob-agent.com/api", "ipfs://QmBob"
         );
     }
 
-    // ===== TEST 1: Buat job berhasil =====
-    function test_CreateJob() public {
+    // ===== TEST 1: Buat job ETH =====
+    function test_CreateJobETH() public {
         vm.prank(alice);
-
-        // Alice buat job dan kirim 0.01 ETH sekaligus
-        // vm.prank + {value} = simulasi kirim ETH dari alice
         uint256 jobId = escrow.createJob{value: 0.01 ether}(
-            bobAgentId,
-            agreedHash,
-            1 hours,
-            "Transkripsi audio 5 menit"
+            bobAgentId, 3600, "Ringkas artikel ini", "summarization"
         );
 
-        // Ambil data job yang baru dibuat
-        (
-            uint256 id,
-            address client,
-            ,
-            ,
-            uint256 payment,
-            ,
-            ,
-            JobEscrow.JobStatus status,
-            ,
-            ,
-        ) = escrow.jobs(jobId);
-
-        assertEq(id, 0);
-        assertEq(client, alice);
-        assertEq(payment, 0.01 ether);
-        assertEq(uint256(status), 0); // 0 = CREATED
-
-        // Cek ETH benar-benar terkunci di dalam contract
         assertEq(address(escrow).balance, 0.01 ether);
+        assertEq(uint256(escrow.getJobStatus(jobId)), 0); // CREATED
     }
 
     // ===== TEST 2: Accept job =====
     function test_AcceptJob() public {
-        // Alice buat job dulu
         vm.prank(alice);
         uint256 jobId = escrow.createJob{value: 0.01 ether}(
-            bobAgentId,
-            agreedHash,
-            1 hours,
-            "Transkripsi audio 5 menit"
-        );
-
-        // Bob accept job
-        vm.prank(bob);
-        escrow.acceptJob(jobId);
-
-        // Cek status berubah jadi ACCEPTED (1)
-        (,,,,,,, JobEscrow.JobStatus status,,,) = escrow.jobs(jobId);
-        assertEq(uint256(status), 1); // 1 = ACCEPTED
-    }
-
-    // ===== TEST 3: Submit hash BENAR → ETH release ke bob =====
-    function test_SubmitCorrectHash_ReleasesPayment() public {
-        // Setup: buat job dan accept
-        vm.prank(alice);
-        uint256 jobId = escrow.createJob{value: 0.01 ether}(
-            bobAgentId,
-            agreedHash,
-            1 hours,
-            "Transkripsi audio 5 menit"
+            bobAgentId, 3600, "Ringkas artikel", "summarization"
         );
 
         vm.prank(bob);
         escrow.acceptJob(jobId);
 
-        // Catat balance bob sebelum
-        uint256 bobBalanceBefore = bob.balance;
-
-        // Bob submit hash yang BENAR
-        vm.prank(bob);
-        escrow.submitResult(jobId, agreedHash);
-
-        // Cek status COMPLETED (2)
-        (,,,,,,, JobEscrow.JobStatus status,,,) = escrow.jobs(jobId);
-        assertEq(uint256(status), 2); // 2 = COMPLETED
-
-        // Cek bob dapat ETH (dikurangi 2% fee)
-        // 0.01 ether - 2% = 0.0098 ether
-        uint256 expectedAmount = 0.01 ether - (0.01 ether * 2 / 100);
-        assertEq(bob.balance, bobBalanceBefore + expectedAmount);
-
-        // Cek contract sudah kosong
-        assertEq(address(escrow).balance, 0);
+        assertEq(uint256(escrow.getJobStatus(jobId)), 1); // ACCEPTED
     }
 
-    // ===== TEST 4: Submit hash SALAH → ETH balik ke alice =====
-    function test_SubmitWrongHash_RefundsClient() public {
+    // ===== TEST 3: Submit result → status VERIFYING =====
+    function test_SubmitResult_StartsVerification() public {
         vm.prank(alice);
         uint256 jobId = escrow.createJob{value: 0.01 ether}(
-            bobAgentId,
-            agreedHash,
-            1 hours,
-            "Transkripsi audio 5 menit"
+            bobAgentId, 3600, "Ringkas artikel", "summarization"
         );
-
         vm.prank(bob);
         escrow.acceptJob(jobId);
-
-        uint256 aliceBalanceBefore = alice.balance;
-
-        // Bob submit hash yang SALAH
-        bytes32 wrongHash = keccak256("hasil yang salah");
         vm.prank(bob);
-        escrow.submitResult(jobId, wrongHash);
+        escrow.submitResult(jobId, "Ringkasan berkualitas tinggi.");
 
-        // Cek status CANCELLED (3)
-        (,,,,,,, JobEscrow.JobStatus status,,,) = escrow.jobs(jobId);
-        assertEq(uint256(status), 3); // 3 = CANCELLED
-
-        // Cek alice dapat refund penuh
-        assertEq(alice.balance, aliceBalanceBefore + 0.01 ether);
-
-        // Cek contract kosong
-        assertEq(address(escrow).balance, 0);
+        assertEq(uint256(escrow.getJobStatus(jobId)), 2); // VERIFYING
     }
 
-    // ===== TEST 5: Cancel job yang expired =====
+    // ===== TEST 4: Verification PASS → payment release =====
+    function test_VerificationPass_ReleasesPayment() public {
+        vm.prank(alice);
+        uint256 jobId = escrow.createJob{value: 0.01 ether}(
+            bobAgentId, 3600, "Ringkas artikel", "summarization"
+        );
+        vm.prank(bob);
+        escrow.acceptJob(jobId);
+        vm.prank(bob);
+        escrow.submitResult(jobId, "Ringkasan berkualitas tinggi.");
+
+        uint256 bobBefore = bob.balance;
+
+        // Simulasi DON: skor 92 (di atas threshold 80)
+        mockFunctions.simulateFulfill(jobId, true, 92);
+
+        assertEq(uint256(escrow.getJobStatus(jobId)), 3); // COMPLETED
+        assertGt(bob.balance, bobBefore);
+    }
+
+    // ===== TEST 5: Verification FAIL → refund ke client =====
+    function test_VerificationFail_RefundsClient() public {
+        vm.prank(alice);
+        uint256 jobId = escrow.createJob{value: 0.01 ether}(
+            bobAgentId, 3600, "Ringkas artikel", "summarization"
+        );
+        vm.prank(bob);
+        escrow.acceptJob(jobId);
+        vm.prank(bob);
+        escrow.submitResult(jobId, "Hasil jelek.");
+
+        uint256 aliceBefore = alice.balance;
+
+        // Simulasi DON: skor 55 (di bawah threshold 80)
+        mockFunctions.simulateFulfill(jobId, false, 55);
+
+        assertEq(uint256(escrow.getJobStatus(jobId)), 4); // CANCELLED
+        assertEq(alice.balance, aliceBefore + 0.01 ether);
+    }
+
+    // ===== TEST 6: Cancel expired job =====
     function test_CancelExpiredJob() public {
         vm.prank(alice);
         uint256 jobId = escrow.createJob{value: 0.01 ether}(
-            bobAgentId,
-            agreedHash,
-            1 hours,
-            "Transkripsi audio 5 menit"
+            bobAgentId, 3600, "Ringkas artikel", "summarization"
         );
 
-        uint256 aliceBalanceBefore = alice.balance;
-
-        // vm.warp = cheat code Foundry untuk skip waktu
-        // Kita loncat 2 jam ke depan supaya deadline terlewat
+        uint256 aliceBefore = alice.balance;
         vm.warp(block.timestamp + 2 hours);
-
-        // Siapapun bisa cancel job yang sudah expired
         escrow.cancelExpiredJob(jobId);
 
-        // Cek alice dapat refund
-        assertEq(alice.balance, aliceBalanceBefore + 0.01 ether);
+        assertEq(uint256(escrow.getJobStatus(jobId)), 4); // CANCELLED
+        assertEq(alice.balance, aliceBefore + 0.01 ether);
     }
 
-    // ===== TEST 6: Orang random tidak bisa accept job =====
+    // ===== TEST 7: Random tidak bisa accept =====
     function test_RevertIf_RandomPersonAccepts() public {
         vm.prank(alice);
         uint256 jobId = escrow.createJob{value: 0.01 ether}(
-            bobAgentId,
-            agreedHash,
-            1 hours,
-            "Transkripsi audio 5 menit"
+            bobAgentId, 3600, "Ringkas artikel", "summarization"
         );
 
-        // Charlie coba accept job milik bob → harus gagal
         vm.prank(charlie);
         vm.expectRevert("Bukan provider job ini");
         escrow.acceptJob(jobId);
+    }
+
+    // ===== TEST 8: Buat job USDC =====
+    function test_CreateJobUSDC() public {
+        uint256 usdcAmount = 2_000_000; // 2 USDC
+        usdc.mint(alice, usdcAmount);
+
+        vm.prank(alice);
+        usdc.approve(address(escrow), usdcAmount);
+
+        vm.prank(alice);
+        uint256 jobId = escrow.createJobUSDC(
+            bobAgentId, usdcAmount, 3600, "Ringkas artikel", "summarization"
+        );
+
+        assertEq(uint256(escrow.getJobStatus(jobId)), 0); // CREATED
+        assertEq(usdc.balanceOf(address(escrow)), usdcAmount);
     }
 }

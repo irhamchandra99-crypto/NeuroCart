@@ -1,207 +1,265 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-// Import contract AgentRegistry biar bisa akses data agent
 import {AgentRegistry} from "./AgentRegistry.sol";
+
+interface IERC20 {
+    function transferFrom(address from, address to, uint256 amount) external returns (bool);
+    function transfer(address to, uint256 amount) external returns (bool);
+}
+
+interface INeuroCartFunctions {
+    function requestVerification(
+        uint256 jobId,
+        string calldata result,
+        string calldata jobType
+    ) external returns (bytes32 requestId);
+}
 
 contract JobEscrow {
 
-    // ===== ENUM =====
-    // Enum = tipe data dengan pilihan terbatas, mirip constants
-    // Ini status sebuah job, urutannya penting (0,1,2,3)
-    enum JobStatus {
-        CREATED,    // 0 - job dibuat, uang terkunci
-        ACCEPTED,   // 1 - agent B konfirmasi mau ngerjain
-        COMPLETED,  // 2 - selesai, uang sudah release
-        CANCELLED   // 3 - gagal/timeout, uang balik
-    }
+    enum JobStatus { CREATED, ACCEPTED, VERIFYING, COMPLETED, CANCELLED }
+    enum PaymentToken { ETH, USDC }
 
-    // ===== STRUCT =====
     struct Job {
         uint256 jobId;
-        address payable clientAgent;   // Agent A - yang bayar
-        address payable providerAgent; // Agent B - yang ngerjain
-        uint256 registryAgentId;       // ID agent B di AgentRegistry
-        uint256 payment;               // jumlah ETH terkunci (dalam wei)
-        bytes32 resultHash;            // hash hasil yang disepakati di awal
-        bytes32 submittedHash;         // hash yang disubmit Agent B
+        address payable clientAgent;
+        address payable providerAgent;
+        uint256 registryAgentId;
+        uint256 payment;
+        PaymentToken paymentToken;
+        string resultData;
+        string jobDescription;
+        string jobType;
         JobStatus status;
-        uint256 createdAt;             // timestamp job dibuat
-        uint256 deadline;              // batas waktu pengerjaan
-        string jobDescription;         // deskripsi tugas
+        uint256 createdAt;
+        uint256 deadline;
+        bytes32 verificationRequestId;
+        uint8 qualityScore;
     }
 
-    // ===== STATE VARIABLES =====
-    AgentRegistry public registry;     // referensi ke contract AgentRegistry
-    
+    AgentRegistry public registry;
+    INeuroCartFunctions public functionsContract;
+    address public automationContract;
+    address public platformOwner;
+    IERC20 public usdcToken;
+
     mapping(uint256 => Job) public jobs;
     uint256 public jobCount = 0;
-
-    // Platform fee = 2% dari setiap transaksi (untuk project kita)
     uint256 public constant PLATFORM_FEE_PERCENT = 2;
-    address public platformOwner;
 
-    // ===== EVENTS =====
-    event JobCreated(uint256 indexed jobId, address indexed client, uint256 indexed agentId, uint256 payment);
+    event JobCreated(uint256 indexed jobId, address indexed client, uint256 indexed agentId, uint256 payment, PaymentToken token);
     event JobAccepted(uint256 indexed jobId, address indexed provider);
-    event JobCompleted(uint256 indexed jobId, bytes32 resultHash);
+    event JobVerificationStarted(uint256 indexed jobId, bytes32 requestId);
+    event JobCompleted(uint256 indexed jobId, uint8 qualityScore, uint256 providerAmount);
     event JobCancelled(uint256 indexed jobId, string reason);
 
-    // ===== CONSTRUCTOR =====
-    // Constructor = fungsi yang dijalankan SEKALI saat contract pertama di-deploy
-    // Seperti __init__ di Python
-    constructor(address registryAddress, address _platformOwner) {
-    registry = AgentRegistry(registryAddress);
-    platformOwner = _platformOwner;
-    }
-
-    // ===== MODIFIER =====
     modifier onlyInStatus(uint256 jobId, JobStatus expectedStatus) {
-    _onlyInStatus(jobId, expectedStatus);
-    _;
-    }
-
-    function _onlyInStatus(uint256 jobId, JobStatus expectedStatus) internal view {
         require(jobs[jobId].status == expectedStatus, "Status job tidak sesuai");
+        _;
     }
 
-    // ===== FUNGSI 1: BUAT JOB =====
-    // keyword "payable" = fungsi ini bisa menerima kiriman ETH
+    modifier onlyFunctions() {
+        require(msg.sender == address(functionsContract), "Hanya Functions contract");
+        _;
+    }
+
+    modifier onlyPlatformOwner() {
+        require(msg.sender == platformOwner, "Hanya platform owner");
+        _;
+    }
+
+    constructor(address registryAddress, address _platformOwner, address _usdcToken) {
+        registry = AgentRegistry(registryAddress);
+        platformOwner = _platformOwner;
+        usdcToken = IERC20(_usdcToken);
+    }
+
+    function setFunctionsContract(address _functions) external onlyPlatformOwner {
+        functionsContract = INeuroCartFunctions(_functions);
+    }
+
+    function setAutomationContract(address _automation) external onlyPlatformOwner {
+        automationContract = _automation;
+    }
+
+    // --- Buat job ETH ---
     function createJob(
         uint256 providerAgentId,
-        bytes32 agreedResultHash,
         uint256 deadlineInSeconds,
-        string memory description
+        string calldata description,
+        string calldata jobType
     ) external payable returns (uint256) {
+        require(registry.isAgentActive(providerAgentId), "Agent tidak aktif");
+        require(msg.value > 0, "Payment ETH harus lebih dari 0");
+        require(deadlineInSeconds >= 300, "Deadline minimal 5 menit");
 
-        // Validasi 1: agent yang mau disewa harus aktif
-        (, , , , bool isActive, , ) = registry.agents(providerAgentId);
-        require(isActive, "Agent tidak aktif");
-
-        // Validasi 2: ETH yang dikirim harus lebih dari 0
-        require(msg.value > 0, "Payment harus lebih dari 0");
-
-        // Validasi 3: deadline harus di masa depan
-        require(deadlineInSeconds > 0, "Deadline tidak valid");
-
-        // Ambil address owner dari agent yang disewa
-        (address providerOwner, , , , , , ) = registry.agents(providerAgentId);
+        address providerOwner = registry.getAgentOwnerAddr(providerAgentId);
 
         uint256 newJobId = jobCount;
-
-        // Simpan job baru
-        // msg.value = jumlah ETH yang dikirim bersamaan dengan pemanggilan fungsi ini
         jobs[newJobId] = Job({
             jobId: newJobId,
             clientAgent: payable(msg.sender),
             providerAgent: payable(providerOwner),
             registryAgentId: providerAgentId,
             payment: msg.value,
-            resultHash: agreedResultHash,
-            submittedHash: bytes32(0), // kosong dulu, diisi nanti saat submit
+            paymentToken: PaymentToken.ETH,
+            resultData: "",
+            jobDescription: description,
+            jobType: jobType,
             status: JobStatus.CREATED,
             createdAt: block.timestamp,
             deadline: block.timestamp + deadlineInSeconds,
-            jobDescription: description
+            verificationRequestId: bytes32(0),
+            qualityScore: 0
         });
 
         jobCount++;
-        emit JobCreated(newJobId, msg.sender, providerAgentId, msg.value);
+        registry.incrementActiveJobs(providerAgentId);
+        emit JobCreated(newJobId, msg.sender, providerAgentId, msg.value, PaymentToken.ETH);
         return newJobId;
     }
 
-    // ===== FUNGSI 2: TERIMA JOB =====
-    // Agent B konfirmasi bahwa dia mau ngerjain job ini
-    function acceptJob(uint256 jobId) 
-        external 
-        onlyInStatus(jobId, JobStatus.CREATED) 
-    {
-        Job storage job = jobs[jobId];
-        
-        // Hanya providerAgent yang bisa accept
-        require(msg.sender == job.providerAgent, "Bukan provider job ini");
-        
-        // Pastikan deadline belum lewat
-        require(block.timestamp < job.deadline, "Deadline sudah lewat");
+    // --- Buat job USDC (untuk x402 flow) ---
+    function createJobUSDC(
+        uint256 providerAgentId,
+        uint256 amount,
+        uint256 deadlineInSeconds,
+        string calldata description,
+        string calldata jobType
+    ) external returns (uint256) {
+        require(registry.isAgentActive(providerAgentId), "Agent tidak aktif");
+        require(amount > 0, "Payment USDC harus lebih dari 0");
+        require(deadlineInSeconds >= 300, "Deadline minimal 5 menit");
 
+        bool transferred = usdcToken.transferFrom(msg.sender, address(this), amount);
+        require(transferred, "Transfer USDC gagal");
+
+        address providerOwner = registry.getAgentOwnerAddr(providerAgentId);
+
+        uint256 newJobId = jobCount;
+        jobs[newJobId] = Job({
+            jobId: newJobId,
+            clientAgent: payable(msg.sender),
+            providerAgent: payable(providerOwner),
+            registryAgentId: providerAgentId,
+            payment: amount,
+            paymentToken: PaymentToken.USDC,
+            resultData: "",
+            jobDescription: description,
+            jobType: jobType,
+            status: JobStatus.CREATED,
+            createdAt: block.timestamp,
+            deadline: block.timestamp + deadlineInSeconds,
+            verificationRequestId: bytes32(0),
+            qualityScore: 0
+        });
+
+        jobCount++;
+        registry.incrementActiveJobs(providerAgentId);
+        emit JobCreated(newJobId, msg.sender, providerAgentId, amount, PaymentToken.USDC);
+        return newJobId;
+    }
+
+    // --- Terima job ---
+    function acceptJob(uint256 jobId) external onlyInStatus(jobId, JobStatus.CREATED) {
+        Job storage job = jobs[jobId];
+        require(msg.sender == job.providerAgent, "Bukan provider job ini");
+        require(block.timestamp < job.deadline, "Deadline sudah lewat");
         job.status = JobStatus.ACCEPTED;
         emit JobAccepted(jobId, msg.sender);
     }
 
-    // ===== FUNGSI 3: SUBMIT HASIL =====
-    // Agent B submit hash dari hasil pekerjaannya
-    function submitResult(uint256 jobId, bytes32 resultHash)
+    // --- Submit hasil + trigger Chainlink Functions ---
+    function submitResult(uint256 jobId, string calldata result)
         external
         onlyInStatus(jobId, JobStatus.ACCEPTED)
     {
         Job storage job = jobs[jobId];
         require(msg.sender == job.providerAgent, "Bukan provider job ini");
+        require(block.timestamp < job.deadline, "Deadline sudah lewat");
+        require(bytes(result).length > 0, "Hasil tidak boleh kosong");
 
-        job.submittedHash = resultHash;
+        job.resultData = result;
+        job.status = JobStatus.VERIFYING;
 
-        // Cek apakah hash yang disubmit cocok dengan yang disepakati di awal
-        if (resultHash == job.resultHash) {
-            // ✅ Hash cocok = kerja selesai, bayar provider
-            _releasePayment(jobId);
-        } else {
-            // ❌ Hash tidak cocok = cancel, uang balik ke client
-            _cancelJob(jobId, "Hash hasil tidak cocok");
-        }
+        bytes32 requestId = functionsContract.requestVerification(jobId, result, job.jobType);
+        job.verificationRequestId = requestId;
+        emit JobVerificationStarted(jobId, requestId);
     }
 
-    // ===== FUNGSI 4: CANCEL JOB =====
-    // Bisa dipanggil client kalau deadline sudah lewat
+    // --- Callback dari Chainlink Functions ---
+    function finalizeVerification(uint256 jobId, bool passed, uint8 score)
+        external
+        onlyFunctions
+        onlyInStatus(jobId, JobStatus.VERIFYING)
+    {
+        Job storage job = jobs[jobId];
+        job.qualityScore = score;
+
+        bytes32 erc8004Id = registry.legacyToErc8004Id(job.registryAgentId);
+
+        if (passed) {
+            _releasePayment(jobId);
+            registry.submitFeedback(erc8004Id, score, "Chainlink verified");
+        } else {
+            registry.slashStake(erc8004Id, "Quality check failed");
+            registry.submitFeedback(erc8004Id, score, "Quality check failed");
+            _cancelJob(jobId, "Kualitas hasil di bawah threshold 80");
+        }
+
+        registry.decrementActiveJobs(job.registryAgentId);
+    }
+
+    // --- Cancel expired (dipanggil Automation atau siapapun) ---
     function cancelExpiredJob(uint256 jobId) external {
         Job storage job = jobs[jobId];
-        
         require(
             job.status == JobStatus.CREATED || job.status == JobStatus.ACCEPTED,
-            "Job sudah selesai atau sudah dicancel"
+            "Job sudah selesai atau dicancel"
         );
         require(block.timestamp > job.deadline, "Deadline belum lewat");
 
+        registry.decrementActiveJobs(job.registryAgentId);
         _cancelJob(jobId, "Deadline exceeded");
     }
-    // ===== FUNGSI INTERNAL =====
-    // Diawali _ = konvensi penanda fungsi internal/private
 
-    // Proses pembayaran ke provider
+    // --- Internal: release payment ---
     function _releasePayment(uint256 jobId) internal {
         Job storage job = jobs[jobId];
-        
-        // Hitung platform fee 2%
         uint256 fee = (job.payment * PLATFORM_FEE_PERCENT) / 100;
-        
-        // Provider dapat sisa setelah dipotong fee
         uint256 providerAmount = job.payment - fee;
-
-        // Update status DULU sebelum kirim ETH
-        // Ini pola "Checks-Effects-Interactions" — best practice keamanan smart contract
-        // Mencegah "reentrancy attack" (serangan di mana hacker panggil fungsi berulang)
         job.status = JobStatus.COMPLETED;
 
-        // Kirim ETH ke provider
-        // .call{value: amount}("") = cara modern kirim ETH di Solidity
-        (bool sentToProvider, ) = job.providerAgent.call{value: providerAmount}("");
-        require(sentToProvider, "Gagal kirim ETH ke provider");
+        if (job.paymentToken == PaymentToken.ETH) {
+            (bool sentProvider, ) = job.providerAgent.call{value: providerAmount}("");
+            require(sentProvider, "Gagal kirim ETH ke provider");
+            (bool sentFee, ) = payable(platformOwner).call{value: fee}("");
+            require(sentFee, "Gagal kirim fee");
+        } else {
+            require(usdcToken.transfer(job.providerAgent, providerAmount), "Gagal kirim USDC ke provider");
+            require(usdcToken.transfer(platformOwner, fee), "Gagal kirim fee USDC");
+        }
 
-        // Kirim fee ke platform owner
-        (bool sentFee, ) = payable(platformOwner).call{value: fee}("");
-        require(sentFee, "Gagal kirim fee");
-
-        emit JobCompleted(jobId, job.submittedHash);
+        emit JobCompleted(jobId, job.qualityScore, providerAmount);
     }
 
-    // Proses pembatalan dan refund ke client
+    // --- Internal: cancel & refund ---
     function _cancelJob(uint256 jobId, string memory reason) internal {
         Job storage job = jobs[jobId];
-        
         job.status = JobStatus.CANCELLED;
 
-        // Kembalikan ETH ke client
-        (bool refunded, ) = job.clientAgent.call{value: job.payment}("");
-        require(refunded, "Gagal refund ETH ke client");
+        if (job.paymentToken == PaymentToken.ETH) {
+            (bool refunded, ) = job.clientAgent.call{value: job.payment}("");
+            require(refunded, "Gagal refund ETH");
+        } else {
+            require(usdcToken.transfer(job.clientAgent, job.payment), "Gagal refund USDC");
+        }
 
         emit JobCancelled(jobId, reason);
     }
-}  // ← tutup contract
+
+    function getJobStatus(uint256 jobId) external view returns (JobStatus) {
+        return jobs[jobId].status;
+    }
+}
