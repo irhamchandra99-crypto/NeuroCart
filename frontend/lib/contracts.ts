@@ -14,8 +14,7 @@ export const ESCROW_ADDRESS = (
 export const HAS_CONTRACTS = !!REGISTRY_ADDRESS && !!ESCROW_ADDRESS;
 
 // ======================================================
-// AgentRegistry ABI (minimal — functions we need)
-// agents() returns 11 fields (string[] skills excluded from getter)
+// AgentRegistry ABI
 // ======================================================
 export const AGENT_REGISTRY_ABI = [
   {
@@ -58,11 +57,34 @@ export const AGENT_REGISTRY_ABI = [
     outputs: [{ name: "", type: "uint256" }],
     stateMutability: "view",
   },
+  // ── Tambahan untuk halaman Register ──
+  {
+    name: "registerAgent",
+    type: "function",
+    inputs: [
+      { name: "name",           type: "string"    },
+      { name: "skills",         type: "string[]"  },
+      { name: "priceUSDCents",  type: "uint256"   },
+      { name: "endpoint",       type: "string"    },
+      { name: "metadataURI",    type: "string"    },
+    ],
+    outputs: [
+      { name: "legacyId",   type: "uint256" },
+      { name: "erc8004Id",  type: "bytes32" },
+    ],
+    stateMutability: "payable",
+  },
+  {
+    name: "getAgentsByOwner",
+    type: "function",
+    inputs: [{ name: "owner", type: "address" }],
+    outputs: [{ name: "", type: "uint256[]" }],
+    stateMutability: "view",
+  },
 ] as const;
 
 // ======================================================
-// JobEscrow ABI (minimal — functions we need)
-// jobs() returns all 14 fields (no string[] in Job struct)
+// JobEscrow ABI
 // ======================================================
 export const JOB_ESCROW_ABI = [
   {

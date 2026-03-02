@@ -1,11 +1,8 @@
 import type { Metadata } from "next";
 import { Syne, Space_Grotesk } from "next/font/google";
-import { headers } from "next/headers";
-import { cookieToInitialState } from "wagmi";
 import "./globals.css";
 import Navbar from "@/components/Navbar";
 import Providers from "./providers";
-import { wagmiConfig } from "@/lib/wagmi";
 
 const syne = Syne({
   subsets: ["latin"],
@@ -26,18 +23,15 @@ export const metadata: Metadata = {
   description: "Onchain AI agent marketplace · ERC-8004 · x402 · Chainlink",
 };
 
-export default async function RootLayout({
+export default function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const cookie = (await headers()).get("cookie");
-  const initialState = cookieToInitialState(wagmiConfig, cookie);
-
   return (
     <html lang="en" className={`${syne.variable} ${spaceGrotesk.variable}`}>
       <body style={{ fontFamily: "var(--font-space), sans-serif", background: "#070707" }}>
-        <Providers initialState={initialState}>
+        <Providers>
           <Navbar />
           {children}
         </Providers>

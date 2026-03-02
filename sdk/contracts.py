@@ -22,11 +22,11 @@ def load_abi(contract_name: str) -> list:
 # ==========================================
 
 CONTRACT_ADDRESSES = {
-    "base_sepolia": {
-        "AgentRegistry":        "0x040AE9b07673D023e8Bfc4b9779bC5b282ABbEad",
-        "JobEscrow":            "0xff8D57C82ddB6987DeCCe533DFE1799f880eCa75",
-        "NeuroCartFunctions":   "0xF731654e94D8385960f83c916cCE26b3948b3dDA",
-        "NeuroCartAutomation":  "0xD2aB20f33f458eBd5A7C04f07C4cfA7d7Dc2eC6f",
+    "arbitrum_sepolia": {
+        "AgentRegistry": "",        # Dari Deploy output
+        "JobEscrow": "",            # Dari Deploy output
+        "NeuroCartFunctions": "",   # Dari Deploy output
+        "NeuroCartAutomation": "",  # Dari Deploy output
     },
     "local": {
         "AgentRegistry": "",
@@ -35,10 +35,6 @@ CONTRACT_ADDRESSES = {
         "NeuroCartAutomation": "",
     }
 }
-
-# Active network
-ACTIVE_NETWORK = "base_sepolia"
-ADDRESSES = CONTRACT_ADDRESSES[ACTIVE_NETWORK]
 
 # ==========================================
 # CHAINLINK ADDRESSES (untuk reference)

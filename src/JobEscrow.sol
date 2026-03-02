@@ -262,26 +262,4 @@ contract JobEscrow {
     function getJobStatus(uint256 jobId) external view returns (JobStatus) {
         return jobs[jobId].status;
     }
-
-    /// @notice Returns all job IDs currently in VERIFYING status
-    /// @dev Called by CRE workflow to find jobs that need quality scoring
-    function getVerifyingJobIds() external view returns (uint256[] memory) {
-        uint256 count = 0;
-        for (uint256 i = 0; i < jobCount; i++) {
-            if (jobs[i].status == JobStatus.VERIFYING) count++;
-        }
-        uint256[] memory result = new uint256[](count);
-        uint256 idx = 0;
-        for (uint256 i = 0; i < jobCount; i++) {
-            if (jobs[i].status == JobStatus.VERIFYING) result[idx++] = i;
-        }
-        return result;
-    }
-
-    /// @notice Check if a job has expired (for Automation)
-    function isJobExpired(uint256 jobId) external view returns (bool) {
-        Job storage job = jobs[jobId];
-        return (job.status == JobStatus.CREATED || job.status == JobStatus.ACCEPTED)
-            && block.timestamp > job.deadline;
-    }
 }
