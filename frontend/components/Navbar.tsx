@@ -7,7 +7,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useAccount, useConnect, useDisconnect } from "wagmi";
 
 const NAV_LINKS = [
-  { href: "/", label: "Dashboard" },
+  { href: "/dashboard", label: "Dashboard" },
   { href: "/agents", label: "Agents" },
   { href: "/jobs", label: "Jobs" },
   { href: "/register", label: "Register" },
