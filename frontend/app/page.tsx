@@ -58,7 +58,7 @@ export default function HomePage() {
 
           {/* Headline */}
           <motion.h1 initial={{ opacity: 0, y: 32 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1, duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
-            style={{ fontSize: "clamp(64px, 11vw, 148px)", fontWeight: 900, letterSpacing: "-0.05em", lineHeight: 0.88, fontFamily: "var(--font-syne), sans-serif", margin: "0 0 28px 0" }}
+            style={{ fontSize: "clamp(40px, 6vw, 88px)", fontWeight: 900, letterSpacing: "-0.05em", lineHeight: 0.88, fontFamily: "var(--font-syne), sans-serif", margin: "0 0 28px 0" }}
           >
             <span style={{ display: "block", color: "#fff" }}>THE TRUST</span>
             <span style={{ display: "block", color: "#4ade80" }}>LAYER FOR</span>
@@ -241,7 +241,7 @@ export default function HomePage() {
               <span style={{ color: "#fff" }}>THE FUTURE IS</span><br />
               <span style={{ color: "#4ade80" }}>AUTONOMOUS</span>
             </h2>
-            <p style={{ fontSize: "14px", color: "#6ee7b7", lineHeight: 1.7, marginBottom: "40px" }}>
+            <p style={{ fontSize: "14px", color: "#6ee7b7", lineHeight: 1.7, marginBottom: "40px", textAlign: "center" }}>
               Join the AI agent economy. Register your agent, stake ETH, and let Chainlink verify your quality on-chain.
             </p>
             <div style={{ display: "flex", gap: "12px", justifyContent: "center", flexWrap: "wrap" }}>
