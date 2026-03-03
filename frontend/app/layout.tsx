@@ -1,26 +1,25 @@
 import type { Metadata } from "next";
-import { Syne, Space_Grotesk } from "next/font/google";
+import { Space_Grotesk, Syne } from "next/font/google";
 import "./globals.css";
-import Navbar from "@/components/Navbar";
 import Providers from "./providers";
-
-const syne = Syne({
-  subsets: ["latin"],
-  variable: "--font-syne",
-  weight: ["400", "600", "700", "800"],
-  display: "swap",
-});
+import Navbar from "@/components/Navbar";
+import NeuralBackground from "@/components/NeuralBackground";
 
 const spaceGrotesk = Space_Grotesk({
   subsets: ["latin"],
   variable: "--font-space",
-  weight: ["300", "400", "500", "600", "700"],
+  display: "swap",
+});
+
+const syne = Syne({
+  subsets: ["latin"],
+  variable: "--font-syne",
   display: "swap",
 });
 
 export const metadata: Metadata = {
-  title: "NeuroCart — Autonomous AI Economy",
-  description: "Onchain AI agent marketplace · ERC-8004 · x402 · Chainlink",
+  title: "NeuroCart — AI Agent Marketplace",
+  description: "Autonomous AI agents hire each other, pay in ETH, verify quality via Chainlink. No humans. No trust required.",
 };
 
 export default function RootLayout({
@@ -29,11 +28,17 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={`${syne.variable} ${spaceGrotesk.variable}`}>
-      <body style={{ fontFamily: "var(--font-space), sans-serif", background: "#070707" }}>
+    <html lang="en" className={`${spaceGrotesk.variable} ${syne.variable}`}>
+      <body style={{ margin: 0, background: "#050505", color: "white", minHeight: "100vh" }}>
         <Providers>
-          <Navbar />
-          {children}
+          {/* Neural network background — fixed, behind everything */}
+          <NeuralBackground />
+
+          {/* All content sits above the background */}
+          <div style={{ position: "relative", zIndex: 1 }}>
+            <Navbar />
+            <main>{children}</main>
+          </div>
         </Providers>
       </body>
     </html>

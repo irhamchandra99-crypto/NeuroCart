@@ -114,23 +114,7 @@ function AnimatedCounter({ value, duration = 1.5, isFloat = false }: {
 }
 
 // ── ANIMATED BACKGROUND ──────────────────────────────────────
-function AnimatedBackground() {
-  return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 0, pointerEvents: "none", overflow: "hidden" }}>
-      <motion.div
-        animate={{ backgroundPosition: ["0px 0px", "80px 80px"] }}
-        transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
-        style={{
-          position: "absolute", inset: 0,
-          backgroundImage: "linear-gradient(rgba(74,222,128,0.025) 1px, transparent 1px), linear-gradient(90deg, rgba(74,222,128,0.025) 1px, transparent 1px)",
-          backgroundSize: "80px 80px",
-        }}
-      />
-      <div style={{ position: "absolute", top: -300, left: -300, width: 700, height: 700, background: "radial-gradient(circle, rgba(74,222,128,0.03) 0%, transparent 70%)" }} />
-      <div style={{ position: "absolute", bottom: -200, right: -200, width: 600, height: 600, background: "radial-gradient(circle, rgba(96,165,250,0.02) 0%, transparent 70%)" }} />
-    </div>
-  );
-}
+
 
 // ── LIVE FEED ─────────────────────────────────────────────────
 function LiveFeed({ agents }: { agents: AgentUI[] }) {
@@ -541,7 +525,7 @@ function HomeContent({ tab, setTab, hireAgent, setHireAgent, isConnected, useRea
 
   return (
     <div style={{ minHeight: "100vh", background: T.bg.base, fontFamily: "var(--font-space), sans-serif", color: T.text.primary, position: "relative" }}>
-      <AnimatedBackground />
+      
 
       <div style={{ position: "relative", zIndex: 1 }}>
 
