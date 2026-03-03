@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { useState, useMemo, useEffect, useRef } from "react";
+import { motion, AnimatePresence, useMotionValue, useSpring } from "framer-motion";
 import {
   useAccount,
   useReadContract,
@@ -18,15 +18,38 @@ import {
   JOB_ESCROW_ABI,
 } from "@/lib/contracts";
 
+// ── DESIGN TOKENS ────────────────────────────────────────────
+const T = {
+  text: {
+    primary:   "#ffffff",
+    secondary: "#aaaaaa",
+    muted:     "#6ee7b7",   // brand secondary — labels, metadata
+    disabled:  "#333333",
+    accent:    "#4ade80",   // brand primary — CTA, highlights
+  },
+  border: {
+    default: "#111111",
+    subtle:  "#0d0d0d",
+    accent:  "rgba(74,222,128,0.15)",
+    active:  "rgba(74,222,128,0.3)",
+  },
+  bg: {
+    base:     "#050505",
+    card:     "#080808",
+    elevated: "#0d0d0d",
+    glass:    "rgba(255,255,255,0.02)",
+  },
+  motion: {
+    fast:   "0.15s ease",
+    normal: "0.2s ease",
+    slow:   "0.35s cubic-bezier(0.16,1,0.3,1)",
+  },
+};
+
 type AgentUI = {
-  id: number; 
-  name: string; 
-  skills: string[];
-  priceDisplay: string; 
-  reputation: number;
-  totalJobs: number; 
-  isActive: boolean; 
-  owner: string;
+  id: number; name: string; skills: string[];
+  priceDisplay: string; reputation: number;
+  totalJobs: number; isActive: boolean; owner: string;
 };
 
 type JobUI = {
@@ -57,8 +80,127 @@ const MOCK_JOBS: JobUI[] = [
   { id: 3, description: "Transkripsi audio 5 menit",    payment: "0.0003", paymentToken: "ETH", status: 0, agentId: 3, qualityScore: 0  },
 ];
 
-// ── HIRE MODAL ───────────────────────────────────────────────
+const LIVE_EVENTS_INITIAL = [
+  { id: 1, type: "JOB_COMPLETED", agent: "SummarizerBot",  score: 92, time: "2s ago",  color: "#4ade80" },
+  { id: 2, type: "VERIFYING",     agent: "TranslatorAI",   score: 0,  time: "14s ago", color: "#e879f9" },
+  { id: 3, type: "JOB_CREATED",   agent: "VisionBot",      score: 0,  time: "31s ago", color: "#60a5fa" },
+  { id: 4, type: "AGENT_HIRED",   agent: "TranscriberBot", score: 0,  time: "1m ago",  color: "#fbbf24" },
+  { id: 5, type: "JOB_COMPLETED", agent: "SummarizerBot",  score: 88, time: "3m ago",  color: "#4ade80" },
+  { id: 6, type: "JOB_CREATED",   agent: "TranslatorAI",   score: 0,  time: "5m ago",  color: "#60a5fa" },
+];
 
+// ── ANIMATED COUNTER ─────────────────────────────────────────
+function AnimatedCounter({ value, duration = 1.5, isFloat = false }: {
+  value: number; duration?: number; isFloat?: boolean;
+}) {
+  const [display, setDisplay] = useState(0);
+  const startRef = useRef<number | null>(null);
+  const rafRef   = useRef<number | null>(null);
+
+  useEffect(() => {
+    startRef.current = null;
+    const animate = (ts: number) => {
+      if (!startRef.current) startRef.current = ts;
+      const progress = Math.min((ts - startRef.current) / (duration * 1000), 1);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      setDisplay(isFloat ? Math.round(eased * value * 10000) / 10000 : Math.round(eased * value));
+      if (progress < 1) rafRef.current = requestAnimationFrame(animate);
+    };
+    rafRef.current = requestAnimationFrame(animate);
+    return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); };
+  }, [value, duration, isFloat]);
+
+  return <>{isFloat ? display.toFixed(4) : display}</>;
+}
+
+// ── ANIMATED BACKGROUND ──────────────────────────────────────
+function AnimatedBackground() {
+  return (
+    <div style={{ position: "fixed", inset: 0, zIndex: 0, pointerEvents: "none", overflow: "hidden" }}>
+      <motion.div
+        animate={{ backgroundPosition: ["0px 0px", "80px 80px"] }}
+        transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
+        style={{
+          position: "absolute", inset: 0,
+          backgroundImage: "linear-gradient(rgba(74,222,128,0.025) 1px, transparent 1px), linear-gradient(90deg, rgba(74,222,128,0.025) 1px, transparent 1px)",
+          backgroundSize: "80px 80px",
+        }}
+      />
+      <div style={{ position: "absolute", top: -300, left: -300, width: 700, height: 700, background: "radial-gradient(circle, rgba(74,222,128,0.03) 0%, transparent 70%)" }} />
+      <div style={{ position: "absolute", bottom: -200, right: -200, width: 600, height: 600, background: "radial-gradient(circle, rgba(96,165,250,0.02) 0%, transparent 70%)" }} />
+    </div>
+  );
+}
+
+// ── LIVE FEED ─────────────────────────────────────────────────
+function LiveFeed({ agents }: { agents: AgentUI[] }) {
+  const [events, setEvents] = useState(LIVE_EVENTS_INITIAL);
+  const eventTypes = ["JOB_CREATED", "AGENT_HIRED", "VERIFYING", "JOB_COMPLETED"];
+  const colors: Record<string, string> = {
+    JOB_COMPLETED: "#4ade80", VERIFYING: "#e879f9",
+    JOB_CREATED: "#60a5fa",   AGENT_HIRED: "#fbbf24",
+  };
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const type  = eventTypes[Math.floor(Math.random() * eventTypes.length)];
+      const agent = agents[Math.floor(Math.random() * agents.length)];
+      setEvents((prev) => [{
+        id: Date.now(), type, agent: agent.name,
+        score: type === "JOB_COMPLETED" ? Math.floor(Math.random() * 20) + 80 : 0,
+        time: "just now", color: colors[type],
+      }, ...prev.slice(0, 9)]);
+    }, 4000);
+    return () => clearInterval(interval);
+  }, [agents]);
+
+  return (
+    <div style={{ border: `1px solid ${T.border.default}`, background: T.bg.card }}>
+      <div style={{ padding: "14px 16px", borderBottom: `1px solid ${T.border.subtle}`, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          <motion.div animate={{ opacity: [1, 0.3, 1] }} transition={{ duration: 1.5, repeat: Infinity }}
+            style={{ width: "6px", height: "6px", background: T.text.accent, boxShadow: `0 0 8px ${T.text.accent}` }}
+          />
+          <span style={{ fontSize: "10px", fontFamily: "monospace", letterSpacing: "0.2em", color: T.text.muted, fontWeight: 700 }}>
+            LIVE ACTIVITY
+          </span>
+        </div>
+        <span style={{ fontSize: "9px", fontFamily: "monospace", color: T.text.disabled, letterSpacing: "0.12em" }}>REAL-TIME</span>
+      </div>
+
+      <div style={{ maxHeight: "520px", overflowY: "auto" }}>
+        <AnimatePresence initial={false}>
+          {events.map((event) => (
+            <motion.div key={event.id}
+              initial={{ opacity: 0, x: 16, height: 0 }}
+              animate={{ opacity: 1, x: 0, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+              style={{ borderBottom: `1px solid ${T.border.subtle}`, borderLeft: `2px solid ${event.color}`, overflow: "hidden" }}
+            >
+              <div style={{ padding: "10px 14px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "3px" }}>
+                  <span style={{ fontSize: "9px", fontFamily: "monospace", letterSpacing: "0.1em", color: event.color, fontWeight: 700 }}>
+                    {event.type.replace("_", " ")}
+                  </span>
+                  <span style={{ fontSize: "9px", fontFamily: "monospace", color: T.text.disabled }}>{event.time}</span>
+                </div>
+                <div style={{ fontSize: "12px", color: T.text.secondary, fontWeight: 600 }}>{event.agent}</div>
+                {event.score > 0 && (
+                  <div style={{ fontSize: "10px", fontFamily: "monospace", color: T.text.muted, marginTop: "2px", opacity: 0.8 }}>
+                    quality: {event.score}/100
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          ))}
+        </AnimatePresence>
+      </div>
+    </div>
+  );
+}
+
+// ── HIRE MODAL ───────────────────────────────────────────────
 function HireModal({ agent, onClose, onSuccess }: { agent: AgentUI; onClose: () => void; onSuccess: () => void }) {
   const [description, setDescription] = useState("");
   const [jobType, setJobType] = useState(agent.skills[0] ?? "general");
@@ -87,60 +229,46 @@ function HireModal({ agent, onClose, onSuccess }: { agent: AgentUI; onClose: () 
   const ethDisplay = requiredEth !== undefined ? `${parseFloat(formatEther(requiredEth)).toFixed(5)} ETH` : "...";
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-      style={{
-        position: "fixed", inset: 0, zIndex: 1000,
-        background: "rgba(0,0,0,0.92)", display: "flex",
-        alignItems: "center", justifyContent: "center", padding: "24px",
-      }}
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+      style={{ position: "fixed", inset: 0, zIndex: 1000, background: "rgba(0,0,0,0.92)", display: "flex", alignItems: "center", justifyContent: "center", padding: "24px" }}
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <motion.div
-        initial={{ y: 40, opacity: 0 }} animate={{ y: 0, opacity: 1 }}
+      <motion.div initial={{ y: 40, opacity: 0 }} animate={{ y: 0, opacity: 1 }}
         exit={{ y: 40, opacity: 0 }} transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-        style={{ background: "#0a0a0a", border: "1px solid #1a1a1a", padding: "40px", maxWidth: "520px", width: "100%" }}
+        style={{ background: "#0a0a0a", border: `1px solid ${T.border.default}`, borderTop: `3px solid ${T.text.accent}`, padding: "40px", maxWidth: "520px", width: "100%" }}
       >
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "32px" }}>
           <div>
-            <p style={{ fontSize: "10px", letterSpacing: "0.2em", color: "#333", marginBottom: "8px", fontFamily: "monospace" }}>HIRE AGENT #{agent.id}</p>
-            <h2 style={{ fontSize: "32px", fontWeight: 900, letterSpacing: "-0.03em", margin: 0, fontFamily: "var(--font-syne), sans-serif", lineHeight: 1 }}>
-              {agent.name}
-            </h2>
+            <p style={{ fontSize: "10px", letterSpacing: "0.2em", color: T.text.muted, marginBottom: "8px", fontFamily: "monospace" }}>HIRE AGENT #{agent.id}</p>
+            <h2 style={{ fontSize: "32px", fontWeight: 900, letterSpacing: "-0.03em", margin: 0, fontFamily: "var(--font-syne), sans-serif", lineHeight: 1, color: T.text.primary }}>{agent.name}</h2>
           </div>
-          <button onClick={onClose} style={{ background: "none", border: "1px solid #1a1a1a", color: "#444", cursor: "pointer", fontSize: "18px", width: "36px", height: "36px", display: "flex", alignItems: "center", justifyContent: "center" }}>×</button>
+          <button onClick={onClose} style={{ background: "none", border: `1px solid ${T.border.default}`, color: T.text.disabled, cursor: "pointer", fontSize: "18px", width: "36px", height: "36px", display: "flex", alignItems: "center", justifyContent: "center" }}>×</button>
         </div>
 
-        <label style={{ fontSize: "10px", letterSpacing: "0.2em", color: "#333", display: "block", marginBottom: "8px", fontFamily: "monospace" }}>JOB DESCRIPTION</label>
+        <label style={{ fontSize: "10px", letterSpacing: "0.2em", color: T.text.muted, display: "block", marginBottom: "8px", fontFamily: "monospace" }}>JOB DESCRIPTION</label>
         <textarea value={description} onChange={(e) => setDescription(e.target.value)}
           placeholder="Describe the task..." rows={4}
-          style={{ width: "100%", padding: "14px", background: "#111", border: "1px solid #1a1a1a", borderTop: "2px solid #222", color: "white", fontSize: "14px", resize: "vertical", fontFamily: "var(--font-space), sans-serif", boxSizing: "border-box", outline: "none", marginBottom: "20px" }}
+          style={{ width: "100%", padding: "14px", background: "#0d0d0d", border: `1px solid ${T.border.default}`, borderTop: "2px solid #1a1a1a", color: T.text.primary, fontSize: "14px", resize: "vertical", fontFamily: "var(--font-space), sans-serif", boxSizing: "border-box", outline: "none", marginBottom: "20px" }}
         />
 
-        <label style={{ fontSize: "10px", letterSpacing: "0.2em", color: "#333", display: "block", marginBottom: "8px", fontFamily: "monospace" }}>JOB TYPE</label>
+        <label style={{ fontSize: "10px", letterSpacing: "0.2em", color: T.text.muted, display: "block", marginBottom: "8px", fontFamily: "monospace" }}>JOB TYPE</label>
         <select value={jobType} onChange={(e) => setJobType(e.target.value)}
-          style={{ width: "100%", padding: "12px 14px", background: "#111", border: "1px solid #1a1a1a", color: "white", fontSize: "14px", fontFamily: "var(--font-space), sans-serif", boxSizing: "border-box", marginBottom: "24px" }}
+          style={{ width: "100%", padding: "12px 14px", background: "#0d0d0d", border: `1px solid ${T.border.default}`, color: T.text.primary, fontSize: "14px", fontFamily: "var(--font-space), sans-serif", boxSizing: "border-box", marginBottom: "24px" }}
         >
           {agent.skills.map((s) => <option key={s} value={s} style={{ background: "#111" }}>{s}</option>)}
         </select>
 
-        <div style={{ padding: "16px", marginBottom: "28px", background: "#111", borderLeft: "3px solid #4ade80", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div style={{ padding: "16px", marginBottom: "28px", background: "#0d0d0d", borderLeft: `3px solid ${T.text.accent}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div>
-            <div style={{ fontSize: "10px", letterSpacing: "0.15em", color: "#444", fontFamily: "monospace" }}>PAYMENT · CHAINLINK ETH/USD</div>
-            <div style={{ fontSize: "11px", color: "#333", marginTop: "4px" }}>{agent.priceDisplay} auto-converted</div>
+            <div style={{ fontSize: "10px", letterSpacing: "0.15em", color: T.text.muted, fontFamily: "monospace" }}>PAYMENT · CHAINLINK ETH/USD</div>
+            <div style={{ fontSize: "11px", color: T.text.secondary, marginTop: "4px" }}>{agent.priceDisplay} auto-converted</div>
           </div>
-          <span style={{ fontSize: "20px", fontWeight: 900, color: "#4ade80", fontFamily: "monospace" }}>{ethDisplay}</span>
+          <span style={{ fontSize: "20px", fontWeight: 900, color: T.text.accent, fontFamily: "monospace" }}>{ethDisplay}</span>
         </div>
-
-        {isSuccess && (
-          <div style={{ padding: "12px 16px", marginBottom: "20px", background: "rgba(74,222,128,0.05)", borderLeft: "3px solid #4ade80", fontSize: "13px", color: "#4ade80" }}>
-            Job created. Agent processing. Chainlink verifying quality.
-          </div>
-        )}
 
         <motion.button whileTap={{ scale: 0.98 }} onClick={handleHire}
           disabled={isPending || isConfirming || !description.trim() || !ESCROW_ADDRESS}
-          style={{ width: "100%", padding: "16px", fontSize: "12px", fontWeight: 700, letterSpacing: "0.2em", cursor: isPending || isConfirming ? "not-allowed" : "pointer", background: isPending || isConfirming ? "#111" : "#4ade80", color: isPending || isConfirming ? "#333" : "#000", border: "none", fontFamily: "monospace", opacity: !description.trim() || !ESCROW_ADDRESS ? 0.4 : 1, transition: "all 0.15s" }}
+          style={{ width: "100%", padding: "16px", fontSize: "12px", fontWeight: 700, letterSpacing: "0.2em", cursor: isPending || isConfirming ? "not-allowed" : "pointer", background: isPending || isConfirming ? "#111" : T.text.accent, color: isPending || isConfirming ? T.text.disabled : "#000", border: "none", fontFamily: "monospace", opacity: !description.trim() || !ESCROW_ADDRESS ? 0.4 : 1, transition: `all ${T.motion.fast}` }}
         >
           {isPending ? "CONFIRM IN WALLET..." : isConfirming ? "CONFIRMING..." : `CREATE JOB · ${ethDisplay}`}
         </motion.button>
@@ -150,102 +278,181 @@ function HireModal({ agent, onClose, onSuccess }: { agent: AgentUI; onClose: () 
 }
 
 // ── AGENT CARD ───────────────────────────────────────────────
-
 function AgentCard({ agent, index, onHire, canHire }: { agent: AgentUI; index: number; onHire: () => void; canHire: boolean }) {
   const [hovered, setHovered] = useState(false);
+  const cardRef  = useRef<HTMLDivElement>(null);
+  const rotateX  = useMotionValue(0);
+  const rotateY  = useMotionValue(0);
+  const springX  = useSpring(rotateX, { stiffness: 150, damping: 20 });
+  const springY  = useSpring(rotateY, { stiffness: 150, damping: 20 });
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!cardRef.current) return;
+    const rect = cardRef.current.getBoundingClientRect();
+    rotateX.set((e.clientY - (rect.top + rect.height / 2)) / 25);
+    rotateY.set(-((e.clientX - (rect.left + rect.width / 2)) / 25));
+  };
+
+  const repColor = agent.reputation >= 80 ? T.text.accent : agent.reputation >= 60 ? "#fbbf24" : "#f87171";
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 32 }} animate={{ opacity: 1, y: 0 }}
+    <motion.div ref={cardRef}
+      initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.08, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-      onHoverStart={() => setHovered(true)} onHoverEnd={() => setHovered(false)}
-      style={{ padding: "28px", background: hovered ? "#0f0f0f" : "#080808", border: "1px solid #111", borderTop: agent.isActive ? "2px solid #4ade80" : "2px solid #1a1a1a", transition: "all 0.2s" }}
+      onHoverStart={() => setHovered(true)}
+      onHoverEnd={() => { setHovered(false); rotateX.set(0); rotateY.set(0); }}
+      onMouseMove={handleMouseMove}
+      style={{ rotateX: springX, rotateY: springY, transformPerspective: 1000, willChange: "transform" }}
     >
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-          <div style={{ width: "5px", height: "5px", background: agent.isActive ? "#4ade80" : "#222", boxShadow: agent.isActive ? "0 0 8px #4ade80" : "none" }} />
-          <span style={{ fontSize: "10px", letterSpacing: "0.2em", color: agent.isActive ? "#4ade80" : "#222", fontFamily: "monospace", fontWeight: 700 }}>
-            {agent.isActive ? "ACTIVE" : "OFFLINE"}
-          </span>
-        </div>
-        <span style={{ fontSize: "10px", color: "#222", fontFamily: "monospace" }}>#{String(agent.id).padStart(3, "0")}</span>
-      </div>
-
-      <h3 style={{ fontSize: "30px", fontWeight: 900, letterSpacing: "-0.03em", lineHeight: 1, marginBottom: "6px", fontFamily: "var(--font-syne), sans-serif", color: hovered ? "#fff" : "#ddd", transition: "color 0.2s" }}>
-        {agent.name}
-      </h3>
-      <p style={{ fontSize: "11px", color: "#222", fontFamily: "monospace", marginBottom: "20px" }}>{agent.owner}</p>
-
-      <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginBottom: "24px" }}>
-        {agent.skills.map((skill) => (
-          <span key={skill} style={{ fontSize: "10px", padding: "4px 10px", background: "transparent", border: "1px solid #1a1a1a", color: "#444", fontFamily: "monospace", letterSpacing: "0.1em" }}>
-            {skill}
-          </span>
-        ))}
-      </div>
-
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "1px", background: "#111", marginBottom: "20px" }}>
-        {[
-          { label: "PRICE", value: agent.priceDisplay, color: "#4ade80" },
-          { label: "REP",   value: `${agent.reputation}`, color: "#888" },
-          { label: "JOBS",  value: String(agent.totalJobs), color: "#888" },
-        ].map((s) => (
-          <div key={s.label} style={{ padding: "14px", background: "#080808" }}>
-            <div style={{ fontSize: "9px", color: "#222", marginBottom: "6px", letterSpacing: "0.15em", fontFamily: "monospace" }}>{s.label}</div>
-            <div style={{ fontSize: "20px", fontWeight: 900, letterSpacing: "-0.02em", fontFamily: "var(--font-syne), sans-serif", color: s.color }}>{s.value}</div>
+      <div style={{
+        padding: "24px", background: hovered ? T.bg.elevated : T.bg.card,
+        border: `1px solid ${hovered ? T.border.accent : T.border.default}`,
+        borderTop: `2px solid ${agent.isActive ? (hovered ? T.text.accent : "rgba(74,222,128,0.35)") : T.border.default}`,
+        transition: `background ${T.motion.normal}, border-color ${T.motion.normal}, box-shadow ${T.motion.normal}`,
+        boxShadow: hovered ? "0 8px 32px rgba(74,222,128,0.06)" : "none",
+        opacity: agent.isActive ? 1 : 0.5,
+      }}>
+        {/* Header */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <motion.div animate={agent.isActive ? { opacity: [1, 0.3, 1] } : {}} transition={{ duration: 2, repeat: Infinity }}
+              style={{ width: "5px", height: "5px", background: agent.isActive ? T.text.accent : T.text.disabled, boxShadow: agent.isActive ? `0 0 8px ${T.text.accent}` : "none" }}
+            />
+            <span style={{ fontSize: "10px", letterSpacing: "0.2em", color: agent.isActive ? T.text.muted : T.text.disabled, fontFamily: "monospace", fontWeight: 700 }}>
+              {agent.isActive ? "ACTIVE" : "OFFLINE"}
+            </span>
           </div>
-        ))}
-      </div>
+          <span style={{ fontSize: "10px", color: T.text.disabled, fontFamily: "monospace" }}>#{String(agent.id).padStart(3, "0")}</span>
+        </div>
 
-      <div style={{ height: "2px", background: "#111", marginBottom: "20px" }}>
-        <motion.div initial={{ width: 0 }} animate={{ width: `${agent.reputation}%` }}
-          transition={{ delay: index * 0.08 + 0.4, duration: 1, ease: "easeOut" }}
-          style={{ height: "100%", background: "#4ade80" }} />
-      </div>
+        {/* Name */}
+        <h3 style={{ fontSize: "26px", fontWeight: 900, letterSpacing: "-0.03em", lineHeight: 1, marginBottom: "5px", fontFamily: "var(--font-syne), sans-serif", color: hovered ? T.text.primary : "#ddd", transition: `color ${T.motion.fast}` }}>
+          {agent.name}
+        </h3>
+        <p style={{ fontSize: "11px", color: T.text.muted, fontFamily: "monospace", marginBottom: "16px", opacity: 0.5 }}>{agent.owner}</p>
 
-      <motion.button whileTap={{ scale: 0.98 }}
-        onClick={() => { if (agent.isActive && canHire) onHire(); }}
-        style={{ width: "100%", padding: "13px", fontSize: "11px", fontWeight: 700, letterSpacing: "0.2em", cursor: agent.isActive && canHire ? "pointer" : "not-allowed", background: agent.isActive && canHire ? "#4ade80" : "transparent", color: agent.isActive && canHire ? "#000" : "#222", border: agent.isActive && canHire ? "none" : "1px solid #111", fontFamily: "monospace", transition: "all 0.15s" }}
-      >
-        {!agent.isActive ? "OFFLINE" : !canHire ? "CONNECT WALLET" : "HIRE →"}
-      </motion.button>
+        {/* Skills */}
+        <div style={{ display: "flex", flexWrap: "wrap", gap: "5px", marginBottom: "18px" }}>
+          {agent.skills.map((skill) => (
+            <span key={skill} style={{ fontSize: "10px", padding: "3px 8px", background: "rgba(110,231,183,0.05)", border: "1px solid rgba(110,231,183,0.1)", color: T.text.muted, fontFamily: "monospace", letterSpacing: "0.08em" }}>
+              {skill}
+            </span>
+          ))}
+        </div>
+
+        {/* Stats */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "1px", background: T.border.default, marginBottom: "14px" }}>
+          {[
+            { label: "PRICE", value: agent.priceDisplay, color: T.text.accent },
+            { label: "SCORE", value: String(agent.reputation), color: repColor },
+            { label: "JOBS",  value: String(agent.totalJobs), color: T.text.secondary },
+          ].map((s) => (
+            <div key={s.label} style={{ padding: "10px 12px", background: T.bg.card }}>
+              <div style={{ fontSize: "9px", color: T.text.muted, marginBottom: "4px", letterSpacing: "0.15em", fontFamily: "monospace", opacity: 0.6 }}>{s.label}</div>
+              <div style={{ fontSize: "17px", fontWeight: 900, letterSpacing: "-0.02em", fontFamily: "var(--font-syne), sans-serif", color: s.color }}>{s.value}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* Rep bar */}
+        <div style={{ height: "2px", background: T.border.default, marginBottom: "14px", overflow: "hidden" }}>
+          <motion.div initial={{ width: 0 }} animate={{ width: `${agent.reputation}%` }}
+            transition={{ delay: index * 0.08 + 0.4, duration: 1.2, ease: "easeOut" }}
+            style={{ height: "100%", background: repColor, boxShadow: `0 0 6px ${repColor}50` }}
+          />
+        </div>
+
+        {/* CTA */}
+        <motion.button whileTap={{ scale: 0.97 }}
+          onClick={() => { if (agent.isActive && canHire) onHire(); }}
+          style={{
+            width: "100%", padding: "11px",
+            fontSize: "11px", fontWeight: 700, letterSpacing: "0.2em",
+            cursor: agent.isActive && canHire ? "pointer" : "not-allowed",
+            background: agent.isActive && canHire ? (hovered ? T.text.accent : "rgba(74,222,128,0.08)") : "transparent",
+            color: agent.isActive && canHire ? (hovered ? "#000" : T.text.accent) : T.text.disabled,
+            border: `1px solid ${agent.isActive && canHire ? (hovered ? T.text.accent : "rgba(74,222,128,0.2)") : T.border.default}`,
+            fontFamily: "monospace", transition: `all ${T.motion.normal}`,
+          }}
+        >
+          {!agent.isActive ? "OFFLINE" : !canHire ? "CONNECT WALLET" : "HIRE →"}
+        </motion.button>
+      </div>
     </motion.div>
   );
 }
 
 // ── JOB ROW ──────────────────────────────────────────────────
-
 function JobRow({ job, index, agents }: { job: JobUI; index: number; agents: AgentUI[] }) {
+  const [hovered, setHovered] = useState(false);
   const s = STATUS_MAP[job.status as keyof typeof STATUS_MAP] ?? STATUS_MAP[0];
   const agentName = agents.find((a) => a.id === job.agentId)?.name ?? `Agent #${job.agentId}`;
 
   return (
-    <motion.div
-      initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}
+    <motion.div initial={{ opacity: 0, x: -16 }} animate={{ opacity: 1, x: 0 }}
       transition={{ delay: index * 0.06 }}
-      style={{ display: "grid", gridTemplateColumns: "40px 1fr auto auto", alignItems: "center", gap: "20px", padding: "18px 20px", background: "#080808", borderBottom: "1px solid #0f0f0f", borderLeft: `3px solid ${s.color}` }}
+      onHoverStart={() => setHovered(true)} onHoverEnd={() => setHovered(false)}
+      style={{ display: "grid", gridTemplateColumns: "40px 1fr auto auto", alignItems: "center", gap: "20px", padding: "14px 20px", background: hovered ? T.bg.elevated : T.bg.card, borderBottom: `1px solid ${T.border.subtle}`, borderLeft: `3px solid ${hovered ? s.color : "transparent"}`, transition: `all ${T.motion.fast}` }}
     >
-      <span style={{ fontSize: "11px", color: "#1a1a1a", fontFamily: "monospace" }}>{String(job.id).padStart(3, "0")}</span>
+      <span style={{ fontSize: "11px", color: T.text.disabled, fontFamily: "monospace" }}>{String(job.id).padStart(3, "0")}</span>
       <div>
-        <div style={{ fontSize: "14px", fontWeight: 600, color: "#bbb", marginBottom: "3px" }}>{job.description}</div>
-        <div style={{ fontSize: "11px", color: "#2a2a2a", fontFamily: "monospace", display: "flex", alignItems: "center", gap: "10px" }}>
+        <div style={{ fontSize: "13px", fontWeight: 600, color: hovered ? T.text.primary : T.text.secondary, marginBottom: "3px", transition: `color ${T.motion.fast}` }}>{job.description}</div>
+        <div style={{ fontSize: "10px", color: T.text.muted, fontFamily: "monospace", display: "flex", alignItems: "center", gap: "8px", opacity: 0.7 }}>
           <span>{agentName}</span>
-          {job.status === 3 && job.qualityScore > 0 && <span style={{ color: "#4ade80" }}>score: {job.qualityScore}/100</span>}
-          {job.status === 2 && <span style={{ color: "#e879f9" }}>chainlink verifying...</span>}
+          {job.status === 3 && job.qualityScore > 0 && <span style={{ color: T.text.accent }}>score: {job.qualityScore}/100</span>}
+          {job.status === 2 && <motion.span animate={{ opacity: [1, 0.4, 1] }} transition={{ duration: 1.5, repeat: Infinity }} style={{ color: "#e879f9" }}>chainlink verifying...</motion.span>}
         </div>
       </div>
-      <span style={{ fontSize: "13px", fontWeight: 700, fontFamily: "monospace", color: "#555" }}>
-        {parseFloat(job.payment).toFixed(4)} {job.paymentToken}
-      </span>
-      <span style={{ fontSize: "10px", fontWeight: 700, padding: "4px 10px", background: s.bg, border: `1px solid ${s.border}`, color: s.color, fontFamily: "monospace", letterSpacing: "0.1em", whiteSpace: "nowrap" }}>
-        {s.label}
-      </span>
+      <span style={{ fontSize: "12px", fontWeight: 700, fontFamily: "monospace", color: T.text.secondary }}>{parseFloat(job.payment).toFixed(4)} {job.paymentToken}</span>
+      <span style={{ fontSize: "10px", fontWeight: 700, padding: "4px 10px", background: s.bg, border: `1px solid ${s.border}`, color: s.color, fontFamily: "monospace", letterSpacing: "0.1em", whiteSpace: "nowrap" }}>{s.label}</span>
     </motion.div>
   );
 }
 
-// ── MAIN PAGE ────────────────────────────────────────────────
+// ── METRIC CARD ──────────────────────────────────────────────
+function MetricCard({ label, value, sub, index, isFloat = false }: {
+  label: string; value: number; sub: string; index: number; isFloat?: boolean;
+}) {
+  return (
+    <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.1 + index * 0.08, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+      style={{ padding: "24px 32px", borderRight: index < 3 ? `1px solid ${T.border.subtle}` : "none", position: "relative", overflow: "hidden" }}
+    >
+      <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: "1px", background: "linear-gradient(90deg, transparent, rgba(74,222,128,0.15), transparent)" }} />
+      <div style={{ fontSize: "10px", letterSpacing: "0.2em", color: T.text.muted, marginBottom: "10px", fontFamily: "monospace", fontWeight: 700 }}>{label}</div>
+      <div style={{ fontSize: "clamp(28px, 3.5vw, 44px)", fontWeight: 900, letterSpacing: "-0.04em", lineHeight: 1, fontFamily: "var(--font-syne), sans-serif", color: T.text.primary, textShadow: "0 0 24px rgba(74,222,128,0.12)" }}>
+        <AnimatedCounter value={value} isFloat={isFloat} />
+        {isFloat && <span style={{ fontSize: "50%", color: T.text.secondary, marginLeft: "4px" }}>ETH</span>}
+      </div>
+      <div style={{ fontSize: "11px", color: T.text.muted, marginTop: "6px", fontFamily: "monospace", opacity: 0.6 }}>{sub}</div>
+    </motion.div>
+  );
+}
 
+// ── LOADING SKELETON ─────────────────────────────────────────
+function SkeletonCard() {
+  return (
+    <div style={{ padding: "24px", background: T.bg.card, border: `1px solid ${T.border.default}` }}>
+      {[100, 55, 75, 40].map((w, i) => (
+        <motion.div key={i} animate={{ opacity: [0.2, 0.5, 0.2] }} transition={{ duration: 1.5, repeat: Infinity, delay: i * 0.1 }}
+          style={{ height: i === 0 ? 24 : 10, width: `${w}%`, background: T.border.default, marginBottom: i === 0 ? 14 : 8 }}
+        />
+      ))}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: "1px", background: T.border.default, marginTop: "16px" }}>
+        {[0, 1, 2].map((i) => (
+          <motion.div key={i} animate={{ opacity: [0.2, 0.5, 0.2] }} transition={{ duration: 1.5, repeat: Infinity, delay: i * 0.15 }}
+            style={{ height: 48, background: T.bg.card }}
+          />
+        ))}
+      </div>
+      <motion.div animate={{ opacity: [0.2, 0.5, 0.2] }} transition={{ duration: 1.5, repeat: Infinity }}
+        style={{ height: 36, background: T.border.default, marginTop: "14px" }}
+      />
+    </div>
+  );
+}
+
+// ── MAIN PAGE ────────────────────────────────────────────────
 export default function Home() {
   const [tab, setTab] = useState<"agents" | "jobs">("agents");
   const [hireAgent, setHireAgent] = useState<AgentUI | null>(null);
@@ -253,30 +460,25 @@ export default function Home() {
   const { isConnected } = useAccount();
 
   useEffect(() => { setMounted(true); }, []);
-
-  // ✅ FIX: useRealData dipindah ke SETELAH mounted check
   if (!mounted) return null;
 
   const useRealData = HAS_CONTRACTS && isConnected;
 
-  return <HomeContent
-    tab={tab} setTab={setTab}
-    hireAgent={hireAgent} setHireAgent={setHireAgent}
-    isConnected={isConnected} useRealData={useRealData}
-  />;
+  return (
+    <HomeContent tab={tab} setTab={setTab} hireAgent={hireAgent} setHireAgent={setHireAgent}
+      isConnected={isConnected} useRealData={useRealData}
+    />
+  );
 }
 
-// Pisahkan konten utama agar hooks bisa dipakai setelah mounted
-function HomeContent({
-  tab, setTab, hireAgent, setHireAgent, isConnected, useRealData
-}: {
-  tab: "agents" | "jobs";
-  setTab: (t: "agents" | "jobs") => void;
-  hireAgent: AgentUI | null;
-  setHireAgent: (a: AgentUI | null) => void;
-  isConnected: boolean;
-  useRealData: boolean;
+function HomeContent({ tab, setTab, hireAgent, setHireAgent, isConnected, useRealData }: {
+  tab: "agents" | "jobs"; setTab: (t: "agents" | "jobs") => void;
+  hireAgent: AgentUI | null; setHireAgent: (a: AgentUI | null) => void;
+  isConnected: boolean; useRealData: boolean;
 }) {
+  const [isLoading, setIsLoading] = useState(true);
+  useEffect(() => { const t = setTimeout(() => setIsLoading(false), 900); return () => clearTimeout(t); }, []);
+
   const { data: agentCountRaw } = useReadContract({ address: REGISTRY_ADDRESS as `0x${string}`, abi: AGENT_REGISTRY_ABI, functionName: "agentCount", query: { enabled: useRealData } });
   const agentCount = agentCountRaw ? Number(agentCountRaw) : 0;
 
@@ -335,128 +537,108 @@ function HomeContent({
   const completedJobs  = jobs.filter((j) => j.status === 3).length;
   const activeAgents   = agents.filter((a) => a.isActive).length;
   const totalVolumeEth = jobs.reduce((acc, j) => j.paymentToken === "ETH" ? acc + parseFloat(j.payment) : acc, 0);
+  const avgScore       = jobs.filter((j) => j.qualityScore > 0).reduce((acc, j, _, arr) => acc + j.qualityScore / arr.length, 0);
 
   return (
-    <div style={{ minHeight: "100vh", background: "#050505", fontFamily: "var(--font-space), sans-serif", color: "white" }}>
+    <div style={{ minHeight: "100vh", background: T.bg.base, fontFamily: "var(--font-space), sans-serif", color: T.text.primary, position: "relative" }}>
+      <AnimatedBackground />
 
-      {/* HERO */}
-      <section style={{ borderBottom: "1px solid #0f0f0f", padding: "80px 48px 60px", position: "relative", overflow: "hidden" }}>
-        <div style={{ position: "absolute", inset: 0, pointerEvents: "none", backgroundImage: "linear-gradient(#0f0f0f 1px, transparent 1px), linear-gradient(90deg, #0f0f0f 1px, transparent 1px)", backgroundSize: "80px 80px" }} />
+      <div style={{ position: "relative", zIndex: 1 }}>
 
-        <div style={{ maxWidth: "1200px", margin: "0 auto", position: "relative" }}>
-          {!useRealData && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-              style={{ display: "inline-flex", alignItems: "center", gap: "8px", padding: "6px 14px", marginBottom: "32px", background: "rgba(251,191,36,0.04)", border: "1px solid rgba(251,191,36,0.12)", fontSize: "10px", color: "#fbbf24", fontFamily: "monospace", letterSpacing: "0.15em" }}
-            >
-              <span style={{ width: "4px", height: "4px", background: "#fbbf24", display: "inline-block" }} />
+        {/* DEMO BANNER */}
+        {!useRealData && (
+          <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
+            style={{ padding: "8px 48px", background: "rgba(251,191,36,0.03)", borderBottom: "1px solid rgba(251,191,36,0.08)", display: "flex", alignItems: "center", gap: "10px" }}
+          >
+            <motion.div animate={{ opacity: [1, 0.3, 1] }} transition={{ duration: 2, repeat: Infinity }}
+              style={{ width: "4px", height: "4px", background: "#fbbf24" }}
+            />
+            <span style={{ fontSize: "10px", color: "#fbbf24", fontFamily: "monospace", letterSpacing: "0.15em" }}>
               {!isConnected ? "DEMO MODE — CONNECT WALLET FOR LIVE DATA" : "SET CONTRACT ADDRESSES IN .ENV.LOCAL"}
-            </motion.div>
-          )}
-
-          <motion.h1
-            initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
-            style={{ fontSize: "clamp(72px, 12vw, 160px)", fontWeight: 900, letterSpacing: "-0.04em", lineHeight: 0.88, fontFamily: "var(--font-syne), sans-serif", margin: 0 }}
-          >
-            <span style={{ display: "block", color: "#fff" }}>NEURO</span>
-            <span style={{ display: "block", color: "#4ade80" }}>CART</span>
-          </motion.h1>
-
-          <motion.p
-            initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.25, duration: 0.6 }}
-            style={{ fontSize: "15px", color: "#444", marginTop: "28px", maxWidth: "440px", lineHeight: 1.7 }}
-          >
-            Autonomous AI agents hire each other, pay in ETH, verify quality via Chainlink.
-            No humans. No trust required.
-          </motion.p>
-
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.45 }}
-            style={{ display: "flex", gap: "8px", marginTop: "36px", flexWrap: "wrap" }}
-          >
-            {["ERC-8004", "x402", "CHAINLINK FUNCTIONS", "AUTOMATION", "DATA FEEDS"].map((tag) => (
-              <span key={tag} style={{ fontSize: "10px", padding: "5px 12px", background: "transparent", border: "1px solid #111", color: "#2a2a2a", fontFamily: "monospace", letterSpacing: "0.15em" }}>
-                {tag}
-              </span>
-            ))}
+            </span>
           </motion.div>
-        </div>
-      </section>
+        )}
 
-      {/* STATS */}
-      <section style={{ borderBottom: "1px solid #0f0f0f" }}>
-        <div style={{ maxWidth: "1200px", margin: "0 auto", display: "grid", gridTemplateColumns: "repeat(3, 1fr)" }}>
-          {[
-            { label: "TOTAL AGENTS",   value: String(agents.length),              sub: `${activeAgents} active`  },
-            { label: "JOBS COMPLETED", value: String(completedJobs),              sub: "Chainlink verified"       },
-            { label: "VOLUME",         value: `${totalVolumeEth.toFixed(4)}`,     sub: "ETH transacted"          },
-          ].map((stat, i) => (
-            <motion.div key={stat.label}
-              initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 + i * 0.08 }}
-              style={{ padding: "40px 48px", borderRight: i < 2 ? "1px solid #0f0f0f" : "none" }}
-            >
-              <div style={{ fontSize: "10px", letterSpacing: "0.2em", color: "#222", marginBottom: "14px", fontFamily: "monospace" }}>{stat.label}</div>
-              <div style={{ fontSize: "clamp(40px, 5vw, 64px)", fontWeight: 900, letterSpacing: "-0.04em", lineHeight: 1, fontFamily: "var(--font-syne), sans-serif" }}>
-                {stat.value}
-              </div>
-              <div style={{ fontSize: "11px", color: "#222", marginTop: "8px", fontFamily: "monospace" }}>{stat.sub}</div>
-            </motion.div>
-          ))}
-        </div>
-      </section>
+        {/* METRICS BAR */}
+        <section style={{ borderBottom: `1px solid ${T.border.subtle}` }}>
+          <div style={{ maxWidth: "1400px", margin: "0 auto", display: "grid", gridTemplateColumns: "repeat(4, 1fr)" }}>
+            <MetricCard label="TOTAL AGENTS"   value={agents.length}        sub={`${activeAgents} active`}    index={0} />
+            <MetricCard label="JOBS COMPLETED" value={completedJobs}        sub="Chainlink verified"          index={1} />
+            <MetricCard label="VOLUME"         value={totalVolumeEth}       sub="ETH transacted"             index={2} isFloat />
+            <MetricCard label="AVG QUALITY"    value={Math.round(avgScore)} sub="Chainlink score avg"        index={3} />
+          </div>
+        </section>
 
-      {/* CONTENT */}
-      <section style={{ maxWidth: "1200px", margin: "0 auto", padding: "48px" }}>
-        <div style={{ display: "flex", gap: "0", marginBottom: "32px", borderBottom: "1px solid #0f0f0f" }}>
-          {(["agents", "jobs"] as const).map((t) => (
-            <button key={t} onClick={() => setTab(t)} style={{ padding: "14px 32px", fontSize: "11px", fontWeight: 700, letterSpacing: "0.2em", cursor: "pointer", background: "transparent", color: tab === t ? "#fff" : "#222", border: "none", borderBottom: tab === t ? "2px solid #4ade80" : "2px solid transparent", fontFamily: "monospace", transition: "all 0.15s", marginBottom: "-1px" }}>
-              {t === "agents" ? `AGENTS (${agents.length})` : `JOBS (${jobs.length})`}
-            </button>
-          ))}
-        </div>
+        {/* MAIN CONTENT */}
+        <section style={{ maxWidth: "1400px", margin: "0 auto", padding: "32px 48px", display: "grid", gridTemplateColumns: "1fr 300px", gap: "24px", alignItems: "start" }}>
 
-        <AnimatePresence mode="wait">
-          {tab === "agents" ? (
-            <motion.div key="agents" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}
-              style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "1px", background: "#0f0f0f" }}
-            >
-              {agents.map((agent, i) => (
-                <AgentCard key={agent.id} agent={agent} index={i} canHire={isConnected} onHire={() => setHireAgent(agent)} />
+          {/* LEFT */}
+          <div>
+            {/* Tabs */}
+            <div style={{ display: "flex", marginBottom: "20px", borderBottom: `1px solid ${T.border.subtle}` }}>
+              {(["agents", "jobs"] as const).map((t) => (
+                <button key={t} onClick={() => setTab(t)}
+                  style={{ padding: "11px 24px", fontSize: "11px", fontWeight: 700, letterSpacing: "0.2em", cursor: "pointer", background: "transparent", color: tab === t ? T.text.primary : T.text.disabled, border: "none", borderBottom: tab === t ? `2px solid ${T.text.accent}` : "2px solid transparent", fontFamily: "monospace", transition: `all ${T.motion.fast}`, marginBottom: "-1px" }}
+                >
+                  {t === "agents" ? `AGENTS (${agents.length})` : `JOBS (${jobs.length})`}
+                </button>
               ))}
-            </motion.div>
-          ) : (
-            <motion.div key="jobs" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}
-              style={{ border: "1px solid #0f0f0f" }}
-            >
-              <div style={{ display: "grid", gridTemplateColumns: "40px 1fr auto auto", gap: "20px", padding: "10px 20px", background: "#080808", borderBottom: "1px solid #0f0f0f" }}>
-                {["#", "DESCRIPTION", "PAYMENT", "STATUS"].map((h) => (
-                  <span key={h} style={{ fontSize: "9px", color: "#1a1a1a", fontFamily: "monospace", letterSpacing: "0.2em" }}>{h}</span>
-                ))}
-              </div>
-              {jobs.length === 0 ? (
-                <div style={{ padding: "60px", textAlign: "center", color: "#1a1a1a", fontSize: "12px", fontFamily: "monospace", letterSpacing: "0.1em" }}>
-                  NO JOBS YET — HIRE AN AGENT TO GET STARTED
-                </div>
-              ) : (
-                jobs.map((job, i) => <JobRow key={job.id} job={job} index={i} agents={agents} />)
-              )}
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </section>
+            </div>
 
-      {/* FOOTER */}
-      <footer style={{ borderTop: "1px solid #0f0f0f", padding: "24px 48px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <span style={{ fontSize: "10px", color: "#1a1a1a", fontFamily: "monospace", letterSpacing: "0.15em" }}>
-          NEUROCART v2.0 · ARBITRUM SEPOLIA · CHAINLINK
-        </span>
-        <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-          <div style={{ width: "4px", height: "4px", background: useRealData ? "#4ade80" : "#fbbf24", boxShadow: `0 0 6px ${useRealData ? "#4ade80" : "#fbbf24"}` }} />
-          <span style={{ fontSize: "10px", color: useRealData ? "#4ade80" : "#fbbf24", fontFamily: "monospace", letterSpacing: "0.2em" }}>
-            {useRealData ? "LIVE" : "DEMO"}
+            <AnimatePresence mode="wait">
+              {tab === "agents" ? (
+                <motion.div key="agents" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}
+                  style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "1px", background: T.border.subtle }}
+                >
+                  {isLoading
+                    ? Array.from({ length: 4 }).map((_, i) => <SkeletonCard key={i} />)
+                    : agents.map((agent, i) => (
+                        <AgentCard key={agent.id} agent={agent} index={i} canHire={isConnected} onHire={() => setHireAgent(agent)} />
+                      ))
+                  }
+                </motion.div>
+              ) : (
+                <motion.div key="jobs" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}
+                  style={{ border: `1px solid ${T.border.subtle}` }}
+                >
+                  <div style={{ display: "grid", gridTemplateColumns: "40px 1fr auto auto", gap: "20px", padding: "10px 20px", background: T.bg.elevated, borderBottom: `1px solid ${T.border.subtle}` }}>
+                    {["#", "DESCRIPTION", "PAYMENT", "STATUS"].map((h) => (
+                      <span key={h} style={{ fontSize: "9px", color: T.text.muted, fontFamily: "monospace", letterSpacing: "0.2em", opacity: 0.6 }}>{h}</span>
+                    ))}
+                  </div>
+                  {jobs.length === 0 ? (
+                    <div style={{ padding: "60px", textAlign: "center", color: T.text.disabled, fontSize: "12px", fontFamily: "monospace", letterSpacing: "0.1em" }}>
+                      NO JOBS YET — HIRE AN AGENT TO GET STARTED
+                    </div>
+                  ) : (
+                    jobs.map((job, i) => <JobRow key={job.id} job={job} index={i} agents={agents} />)
+                  )}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+
+          {/* RIGHT — Live Feed */}
+          <div style={{ position: "sticky", top: "80px" }}>
+            <LiveFeed agents={agents} />
+          </div>
+        </section>
+
+        {/* FOOTER */}
+        <footer style={{ borderTop: `1px solid ${T.border.subtle}`, padding: "18px 48px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <span style={{ fontSize: "10px", color: T.text.disabled, fontFamily: "monospace", letterSpacing: "0.15em" }}>
+            NEUROCART v2.0 · ARBITRUM SEPOLIA · CHAINLINK
           </span>
-        </div>
-      </footer>
+          <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+            <motion.div animate={{ opacity: [1, 0.3, 1] }} transition={{ duration: 2, repeat: Infinity }}
+              style={{ width: "4px", height: "4px", background: useRealData ? T.text.accent : "#fbbf24", boxShadow: `0 0 6px ${useRealData ? T.text.accent : "#fbbf24"}` }}
+            />
+            <span style={{ fontSize: "10px", color: useRealData ? T.text.accent : "#fbbf24", fontFamily: "monospace", letterSpacing: "0.2em" }}>
+              {useRealData ? "LIVE" : "DEMO"}
+            </span>
+          </div>
+        </footer>
+      </div>
 
       <AnimatePresence>
         {hireAgent && (
