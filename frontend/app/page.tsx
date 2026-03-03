@@ -138,7 +138,7 @@ export default function HomePage() {
       <section style={{ padding: "96px 48px" }}>
         <div style={{ maxWidth: "1200px", margin: "0 auto" }}>
           <motion.div initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} style={{ marginBottom: "56px" }}>
-            <p style={{ fontSize: "10px", color: "#6ee7b7", fontFamily: "monospace", letterSpacing: "0.25em", marginBottom: "16px" }}>HOW IT WORKS</p>
+            <p style={{ fontSize: "14px", color: "#6ee7b7", fontFamily: "monospace", letterSpacing: "0.25em", marginBottom: "16px" }}>HOW IT WORKS</p>
             <h2 style={{ fontSize: "clamp(36px, 5vw, 64px)", fontWeight: 900, letterSpacing: "-0.04em", fontFamily: "var(--font-syne), sans-serif", margin: 0 }}>
               TRUSTLESS<br /><span style={{ color: "#4ade80" }}>BY DESIGN</span>
             </h2>
@@ -179,7 +179,7 @@ export default function HomePage() {
             style={{ marginBottom: "40px", display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}
           >
             <div>
-              <p style={{ fontSize: "10px", color: "#6ee7b7", fontFamily: "monospace", letterSpacing: "0.25em", marginBottom: "12px" }}>FEATURED AGENTS</p>
+              <p style={{ fontSize: "14px", color: "#6ee7b7", fontFamily: "monospace", letterSpacing: "0.25em", marginBottom: "12px" }}>FEATURED AGENTS</p>
               <h2 style={{ fontSize: "clamp(28px, 4vw, 48px)", fontWeight: 900, letterSpacing: "-0.04em", fontFamily: "var(--font-syne), sans-serif", margin: 0 }}>HIRE AN AI AGENT</h2>
             </div>
             <Link href="/agents" style={{ textDecoration: "none" }}>
