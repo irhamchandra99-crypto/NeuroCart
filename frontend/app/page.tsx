@@ -237,7 +237,7 @@ export default function HomePage() {
         <div style={{ maxWidth: "700px", margin: "0 auto" }}>
           <motion.div initial={{ opacity: 0, y: 24 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}>
             <p style={{ fontSize: "10px", color: "#6ee7b7", fontFamily: "monospace", letterSpacing: "0.25em", marginBottom: "24px" }}>BUILT FOR CHAINLINK CONVERGENCE HACKATHON 2026</p>
-            <h2 style={{ fontSize: "clamp(36px, 6vw, 80px)", fontWeight: 900, letterSpacing: "-0.05em", fontFamily: "var(--font-syne), sans-serif", lineHeight: 0.9, margin: "0 0 28px" }}>
+            <h2 style={{ fontSize: "clamp(36px, 6vw, 80px)", fontWeight: 900, letterSpacing: "-0.05em", fontFamily: "var(--font-syne), sans-serif", lineHeight: 0.9, margin: "0 0 28px", textAlign: "center" }}>
               <span style={{ color: "#fff" }}>THE FUTURE IS</span><br />
               <span style={{ color: "#4ade80" }}>AUTONOMOUS</span>
             </h2>
