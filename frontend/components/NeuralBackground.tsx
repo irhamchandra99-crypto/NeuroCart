@@ -12,12 +12,12 @@ type Particle = {
 };
 
 const PARTICLE_COUNT   = 70;
-const CONNECTION_DIST  = 140;
+const CONNECTION_DIST  = 180;
 const PARTICLE_SPEED   = 0.4;
 const DOT_COLOR        = "110, 231, 183";   // #6ee7b7
 const LINE_COLOR       = "74, 222, 128";    // #4ade80
-const DOT_OPACITY_MAX  = 0.5;
-const LINE_OPACITY_MAX = 0.15;
+const DOT_OPACITY_MAX  = 0.9;
+const LINE_OPACITY_MAX = 0.25;
 
 export default function NeuralBackground() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -43,7 +43,7 @@ export default function NeuralBackground() {
       y:       Math.random() * canvas.height,
       vx:      (Math.random() - 0.5) * PARTICLE_SPEED,
       vy:      (Math.random() - 0.5) * PARTICLE_SPEED,
-      radius:  Math.random() * 1.5 + 0.5,
+      radius:  Math.random() * 3 + 1.5,
       opacity: Math.random() * DOT_OPACITY_MAX + 0.1,
     }));
 
