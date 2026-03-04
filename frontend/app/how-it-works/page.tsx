@@ -235,7 +235,7 @@ function SystemDiagram({ activeEntities, stepColor }: { activeEntities: string[]
               left: entity.x, top: entity.y,
               width: "72px",
               padding: "10px 8px",
-              background: isHighlighted ? `${stepColor}18` : T.bg.card,
+              background: isHighlighted ? `${stepColor}18` : "#1a1a1a",
               border: `1px solid ${isHighlighted ? stepColor + "55" : T.border.default}`,
               textAlign: "center",
               boxShadow: isHighlighted ? `0 0 24px ${stepColor}30` : "none",
@@ -279,7 +279,7 @@ function Terminal({ lines, isPlaying, onPlay }: { lines: { delay: number; text: 
   }, [visibleLines]);
 
   return (
-    <div style={{ background: "#030303", border: `1px solid ${T.border.default}`, borderTop: `2px solid ${T.text.accent}` }}>
+    <div style={{ background: "#111111", border: "1px solid #222222", borderTop: `2px solid ${T.text.accent}`, borderRadius: "10px", overflow: "hidden" }}>
       {/* Terminal header */}
       <div style={{ padding: "8px 16px", borderBottom: `1px solid ${T.border.subtle}`, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <div style={{ display: "flex", gap: "6px" }}>
@@ -329,7 +329,7 @@ function QualitySlider() {
   const glow  = pass ? "rgba(74,222,128,0.2)" : "rgba(248,113,113,0.2)";
 
   return (
-    <div style={{ padding: "28px", background: T.bg.card, border: `1px solid ${T.border.default}` }}>
+    <div style={{ padding: "28px", background: "#141414", border: "1px solid #222222", borderRadius: "12px" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
         <span style={{ fontSize: "10px", color: T.text.muted, fontFamily: "monospace", letterSpacing: "0.2em" }}>QUALITY SCORE SIMULATOR</span>
         <motion.span
@@ -358,14 +358,14 @@ function QualitySlider() {
       <div style={{ position: "relative", marginBottom: "24px" }}>
         <div style={{ position: "absolute", left: "80%", top: "-28px", transform: "translateX(-50%)" }}>
           <div style={{ fontSize: "8px", color: T.text.disabled, fontFamily: "monospace", textAlign: "center" }}>THRESHOLD</div>
-          <div style={{ width: "3px", height: "8px", background: T.text.disabled, margin: "2px auto 0" }} />
+          <div style={{ width: "1px", height: "8px", background: T.text.disabled, margin: "2px auto 0" }} />
         </div>
       </div>
 
       {/* Result */}
       <motion.div
         animate={{ borderColor: color, boxShadow: `0 0 24px ${glow}` }}
-        style={{ padding: "16px 20px", border: "1px solid", display: "flex", justifyContent: "space-between", alignItems: "center" }}
+        style={{ padding: "16px 20px", border: "1px solid", display: "flex", justifyContent: "space-between", alignItems: "center", borderRadius: "8px" }}
       >
         <div>
           <motion.div animate={{ color }} style={{ fontSize: "14px", fontWeight: 700, fontFamily: "monospace", letterSpacing: "0.15em", marginBottom: "4px" }}>
@@ -437,11 +437,11 @@ export default function HowItWorksPage() {
                   whileTap={{ scale: 0.97 }}
                   animate={{
                     borderColor: activeStep === s.id ? s.color : "#222222",
-                    background: activeStep === s.id ? `${s.color}18` : "#0f0f0f",
+                    background: activeStep === s.id ? `${s.color}18` : "#1a1a1a",
                     boxShadow: activeStep === s.id ? `0 0 24px ${s.color}25` : "none",
                   }}
                   transition={{ duration: 0.25 }}
-                  style={{ padding: "16px 20px", border: "1px solid", cursor: "pointer", textAlign: "left", minWidth: "140px" }}
+                  style={{ padding: "16px 20px", border: "1px solid", cursor: "pointer", textAlign: "left", minWidth: "140px", borderRadius: "10px" }}
                 >
                   <div style={{ fontSize: "10px", fontFamily: "monospace", color: activeStep === s.id ? s.color : "#555555", letterSpacing: "0.15em", marginBottom: "6px" }}>
                     {s.num}
@@ -476,7 +476,7 @@ export default function HowItWorksPage() {
               style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1px", background: T.border.subtle }}
             >
               {/* Left: detail */}
-              <div style={{ padding: "32px", background: T.bg.card, borderLeft: `3px solid ${step.color}` }}>
+              <div style={{ padding: "32px", background: "#141414", borderLeft: `3px solid ${step.color}`, borderRadius: "0" }}>
                 <div style={{ fontSize: "10px", color: step.color, fontFamily: "monospace", letterSpacing: "0.2em", marginBottom: "12px" }}>
                   {step.num} / {step.label}
                 </div>
@@ -520,7 +520,7 @@ export default function HowItWorksPage() {
           <p style={{ fontSize: "12px", color: T.text.secondary, fontFamily: "monospace", marginBottom: "28px" }}>
             Select a step above to highlight active entities
           </p>
-          <div style={{ background: T.bg.card, border: `1px solid ${T.border.default}`, padding: "32px" }}>
+          <div style={{ background: "#141414", border: `1px solid #222222`, padding: "32px", borderRadius: "12px" }}>
             <SystemDiagram activeEntities={step.entities} stepColor={step.color} />
           </div>
         </motion.div>
@@ -550,7 +550,7 @@ export default function HowItWorksPage() {
           </h2>
 
           {/* Tab buttons */}
-          <div style={{ display: "flex", gap: "1px", background: T.border.subtle, marginBottom: "1px" }}>
+          <div style={{ display: "flex", gap: "1px", background: "#1a1a1a", marginBottom: "1px", borderRadius: "12px 12px 0 0", overflow: "hidden" }}>
             {TECH_TABS.map((tab) => (
               <button key={tab.id} onClick={() => setActiveTech(tab.id)}
                 style={{
@@ -574,7 +574,7 @@ export default function HowItWorksPage() {
               <motion.div key={tab.id}
                 initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
                 transition={{ duration: 0.2 }}
-                style={{ padding: "32px", background: T.bg.card, border: `1px solid ${T.border.default}`, borderTop: `2px solid ${tab.color}` }}
+                style={{ padding: "32px", background: "#141414", border: "1px solid #222222", borderTop: `2px solid ${tab.color}`, borderRadius: "0 0 12px 12px" }}
               >
                 <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: "32px", alignItems: "start" }}>
                   <div>
