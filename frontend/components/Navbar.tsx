@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useAccount, useConnect, useDisconnect } from "wagmi";
 
 const NAV_LINKS = [
+  { href: "/", label: "Home" },
   { href: "/dashboard", label: "Dashboard" },
   { href: "/agents", label: "Agents" },
   { href: "/jobs", label: "Jobs" },
@@ -34,8 +35,8 @@ function WalletButton() {
     return (
       <div style={{
         padding: "10px 20px", borderRadius: "10px", fontSize: "13px",
-        background: "rgba(52,211,153,0.1)", border: "1px solid rgba(52,211,153,0.2)",
-        color: "#34d399", width: "120px", height: "38px",
+        background: "rgba(74,222,128,0.1)", border: "1px solid rgba(74,222,128,0.2)",
+        color: "#4ade80", width: "120px", height: "38px",
       }} />
     );
   }
@@ -54,11 +55,11 @@ function WalletButton() {
             padding: "10px 20px", borderRadius: "10px", fontSize: "13px", fontWeight: 600,
             background: isWrongNetwork
               ? "linear-gradient(135deg, #f59e0b, #d97706)"
-              : "linear-gradient(135deg, #34d399, #059669)",
+              : "linear-gradient(135deg, #4ade80, #059669)",
             color: "#000", border: "none", cursor: "pointer",
             boxShadow: isWrongNetwork
               ? "0 0 20px rgba(245,158,11,0.2)"
-              : "0 0 20px rgba(52,211,153,0.2)",
+              : "0 0 20px rgba(74,222,128,0.2)",
             fontFamily: "var(--font-space), sans-serif",
           }}
         >
@@ -127,14 +128,14 @@ function WalletButton() {
 
   return (
     <motion.button
-      whileHover={{ scale: 1.03, boxShadow: "0 0 30px rgba(52,211,153,0.35)" }}
+      whileHover={{ scale: 1.03, boxShadow: "0 0 30px rgba(74,222,128,0.35)" }}
       whileTap={{ scale: 0.97 }}
       onClick={() => injectedConnector && connect({ connector: injectedConnector })}
       style={{
         padding: "10px 20px", borderRadius: "10px", fontSize: "13px", fontWeight: 600,
-        background: "linear-gradient(135deg, #34d399, #059669)",
+        background: "linear-gradient(135deg, #4ade80, #059669)",
         color: "#000", border: "none", cursor: "pointer",
-        boxShadow: "0 0 20px rgba(52,211,153,0.2)",
+        boxShadow: "0 0 20px rgba(74,222,128,0.2)",
         fontFamily: "var(--font-space), sans-serif",
       }}
     >
@@ -166,7 +167,7 @@ export default function Navbar() {
           fontFamily: "var(--font-syne), 'Syne', sans-serif",
           color: "white", margin: 0,
         }}>
-          Neuro<span style={{ color: "#34d399" }}>Cart</span>
+          Neuro<span style={{ color: "#4ade80" }}>Cart</span>
         </h1>
       </Link>
 
@@ -178,9 +179,9 @@ export default function Navbar() {
             <Link key={link.href} href={link.href} style={{ textDecoration: "none" }}>
               <div style={{
                 padding: "7px 16px", borderRadius: "8px", fontSize: "13px", fontWeight: 500,
-                color: isActive ? "#34d399" : "#555",
-                background: isActive ? "rgba(52,211,153,0.08)" : "transparent",
-                border: isActive ? "1px solid rgba(52,211,153,0.15)" : "1px solid transparent",
+                color: isActive ? "#4ade80" : "#555",
+                background: isActive ? "rgba(74,222,128,0.08)" : "transparent",
+                border: isActive ? "1px solid rgba(74,222,128,0.15)" : "1px solid transparent",
                 transition: "all 0.2s", cursor: "pointer",
                 fontFamily: "var(--font-space), sans-serif",
               }}>
