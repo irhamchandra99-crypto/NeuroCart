@@ -131,71 +131,125 @@ const ENTITIES = [
 ];
 
 const CONNECTIONS = [
-  { from: "CLIENT",    to: "CONTRACT",  label: "createJob()" },
-  { from: "CONTRACT",  to: "ESCROW",    label: "lock ETH"    },
-  { from: "CONTRACT",  to: "AGENT",     label: "notify"      },
-  { from: "AGENT",     to: "CONTRACT",  label: "completeJob()"},
-  { from: "CHAINLINK", to: "CONTRACT",  label: "score"       },
-  { from: "ESCROW",    to: "AGENT",     label: "pay"         },
-  { from: "ESCROW",    to: "CLIENT",    label: "refund"      },
+  { from: "CLIENT",    to: "CONTRACT"  },
+  { from: "CONTRACT",  to: "ESCROW"    },
+  { from: "CONTRACT",  to: "AGENT"     },
+  { from: "AGENT",     to: "CONTRACT"  },
+  { from: "CHAINLINK", to: "CONTRACT"  },
+  { from: "ESCROW",    to: "AGENT"     },
+  { from: "ESCROW",    to: "CLIENT"    },
 ];
 
-function SystemDiagram({ activeEntities }: { activeEntities: string[] }) {
+function AnimatedDot({ x1, y1, x2, y2, color }: { x1: number; y1: number; x2: number; y2: number; color: string }) {
+  return (
+    <motion.circle
+      r="4"
+      fill={color}
+      filter={`drop-shadow(0 0 4px ${color})`}
+      initial={{ cx: x1, cy: y1, opacity: 0 }}
+      animate={{
+        cx: [x1, x2],
+        cy: [y1, y2],
+        opacity: [0, 1, 1, 0],
+      }}
+      transition={{
+        duration: 1.6,
+        repeat: Infinity,
+        repeatDelay: 0.4,
+        ease: "easeInOut",
+        times: [0, 0.1, 0.9, 1],
+      }}
+    />
+  );
+}
+
+function SystemDiagram({ activeEntities, stepColor }: { activeEntities: string[]; stepColor: string }) {
   const hasActive = activeEntities.length > 0;
 
   return (
     <div style={{ position: "relative", width: "100%", height: "320px" }}>
-      <svg width="100%" height="320" viewBox="0 0 560 320" style={{ position: "absolute", inset: 0 }}>
-        {/* Connection lines */}
+      <svg width="100%" height="320" viewBox="0 0 560 320"
+        style={{ position: "absolute", inset: 0, overflow: "visible" }}>
+
+        {/* Static lines first */}
         {CONNECTIONS.map((conn) => {
           const from = ENTITIES.find((e) => e.id === conn.from)!;
           const to   = ENTITIES.find((e) => e.id === conn.to)!;
-          const isActive = hasActive && activeEntities.includes(conn.from) && activeEntities.includes(conn.to);
+          const isActive = hasActive
+            && activeEntities.includes(conn.from)
+            && activeEntities.includes(conn.to);
+
+          const x1 = from.x + 36;
+          const y1 = from.y + 18;
+          const x2 = to.x + 36;
+          const y2 = to.y + 18;
 
           return (
-            <g key={`${conn.from}-${conn.to}`}>
+            <g key={`line-${conn.from}-${conn.to}`}>
               <line
-                x1={from.x + 36} y1={from.y + 18}
-                x2={to.x + 36}   y2={to.y + 18}
-                stroke={isActive ? "#4ade80" : "#1a1a1a"}
+                x1={x1} y1={y1} x2={x2} y2={y2}
+                stroke={isActive ? stepColor : "#1a1a1a"}
                 strokeWidth={isActive ? 1.5 : 1}
                 strokeDasharray={isActive ? "none" : "4 4"}
-                style={{ transition: "all 0.4s" }}
+                style={{ transition: "stroke 0.4s, stroke-width 0.4s" }}
               />
-              {isActive && (
-                <motion.circle r="3" fill="#4ade80"
-                  animate={{
-                    cx: [from.x + 36, to.x + 36],
-                    cy: [from.y + 18, to.y + 18],
-                  }}
-                  transition={{ duration: 1.2, repeat: Infinity, ease: "linear" }}
-                />
-              )}
             </g>
+          );
+        })}
+
+        {/* Animated dots — only on active connections */}
+        {CONNECTIONS.map((conn) => {
+          const from = ENTITIES.find((e) => e.id === conn.from)!;
+          const to   = ENTITIES.find((e) => e.id === conn.to)!;
+          const isActive = hasActive
+            && activeEntities.includes(conn.from)
+            && activeEntities.includes(conn.to);
+
+          if (!isActive) return null;
+
+          return (
+            <AnimatedDot
+              key={`dot-${conn.from}-${conn.to}`}
+              x1={from.x + 36} y1={from.y + 18}
+              x2={to.x + 36}   y2={to.y + 18}
+              color={stepColor}
+            />
           );
         })}
       </svg>
 
       {/* Entity nodes */}
       {ENTITIES.map((entity) => {
-        const isActive = !hasActive || activeEntities.includes(entity.id);
+        const isHighlighted = hasActive && activeEntities.includes(entity.id);
+        const isDimmed = hasActive && !activeEntities.includes(entity.id);
+
         return (
           <motion.div key={entity.id}
-            animate={{ opacity: isActive ? 1 : 0.15, scale: isActive && hasActive && activeEntities.includes(entity.id) ? 1.05 : 1 }}
-            transition={{ duration: 0.3 }}
+            animate={{
+              opacity: isDimmed ? 0.15 : 1,
+              scale: isHighlighted ? 1.08 : 1,
+            }}
+            transition={{ duration: 0.35, ease: "easeOut" }}
             style={{
               position: "absolute",
               left: entity.x, top: entity.y,
               width: "72px",
               padding: "10px 8px",
-              background: isActive && hasActive && activeEntities.includes(entity.id) ? `${entity.color}12` : T.bg.card,
-              border: `1px solid ${isActive && hasActive && activeEntities.includes(entity.id) ? entity.color + "40" : T.border.default}`,
+              background: isHighlighted ? `${stepColor}18` : T.bg.card,
+              border: `1px solid ${isHighlighted ? stepColor + "55" : T.border.default}`,
               textAlign: "center",
-              boxShadow: isActive && hasActive && activeEntities.includes(entity.id) ? `0 0 20px ${entity.color}20` : "none",
-              transition: "all 0.3s",
+              boxShadow: isHighlighted ? `0 0 24px ${stepColor}30` : "none",
+              transition: "background 0.35s, border-color 0.35s, box-shadow 0.35s",
             }}
           >
-            <div style={{ fontSize: "7px", color: isActive && hasActive && activeEntities.includes(entity.id) ? entity.color : T.text.disabled, fontFamily: "monospace", letterSpacing: "0.1em", lineHeight: 1.4, whiteSpace: "pre-line" }}>
+            <div style={{
+              fontSize: "7px",
+              color: isHighlighted ? stepColor : T.text.disabled,
+              fontFamily: "monospace", letterSpacing: "0.1em",
+              lineHeight: 1.4, whiteSpace: "pre-line",
+              transition: "color 0.35s",
+              fontWeight: isHighlighted ? 700 : 400,
+            }}>
               {entity.label}
             </div>
           </motion.div>
@@ -382,18 +436,18 @@ export default function HowItWorksPage() {
                   whileHover={{ scale: 1.04 }}
                   whileTap={{ scale: 0.97 }}
                   animate={{
-                    borderColor: activeStep === s.id ? s.color : T.border.default,
-                    background: activeStep === s.id ? `${s.color}10` : T.bg.card,
+                    borderColor: activeStep === s.id ? s.color : "#222222",
+                    background: activeStep === s.id ? `${s.color}18` : "#0f0f0f",
                     boxShadow: activeStep === s.id ? `0 0 24px ${s.color}25` : "none",
                   }}
                   transition={{ duration: 0.25 }}
                   style={{ padding: "16px 20px", border: "1px solid", cursor: "pointer", textAlign: "left", minWidth: "140px" }}
                 >
-                  <div style={{ fontSize: "10px", fontFamily: "monospace", color: activeStep === s.id ? s.color : T.text.disabled, letterSpacing: "0.15em", marginBottom: "6px" }}>
+                  <div style={{ fontSize: "10px", fontFamily: "monospace", color: activeStep === s.id ? s.color : "#555555", letterSpacing: "0.15em", marginBottom: "6px" }}>
                     {s.num}
                   </div>
                   <div style={{ fontSize: "20px", marginBottom: "6px" }}>{s.icon}</div>
-                  <div style={{ fontSize: "10px", fontFamily: "monospace", fontWeight: 700, letterSpacing: "0.1em", color: activeStep === s.id ? T.text.primary : T.text.disabled, lineHeight: 1.3 }}>
+                  <div style={{ fontSize: "10px", fontFamily: "monospace", fontWeight: 700, letterSpacing: "0.1em", color: activeStep === s.id ? T.text.primary : "#666666", lineHeight: 1.3 }}>
                     {s.label}
                   </div>
                 </motion.button>
@@ -467,7 +521,7 @@ export default function HowItWorksPage() {
             Select a step above to highlight active entities
           </p>
           <div style={{ background: T.bg.card, border: `1px solid ${T.border.default}`, padding: "32px" }}>
-            <SystemDiagram activeEntities={step.entities} />
+            <SystemDiagram activeEntities={step.entities} stepColor={step.color} />
           </div>
         </motion.div>
 
