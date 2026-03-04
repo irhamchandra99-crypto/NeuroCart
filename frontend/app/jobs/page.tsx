@@ -406,7 +406,7 @@ function JobsContent({ useRealData, selectedJob, setSelectedJob, filters, setFil
               <span style={{ display: "block", color: "#4ade80" }}>ESCROW</span>
             </h1>
             <p style={{ fontSize: "14px", color: T.text.secondary, maxWidth: "440px", lineHeight: 1.7 }}>
-              Semua transaksi dikunci di smart contract. Chainlink Functions memverifikasi kualitas sebelum payment direlease.
+              All transactions are locked in a smart contract. Chainlink Functions verifies quality before payment is released.
             </p>
           </motion.div>
 
