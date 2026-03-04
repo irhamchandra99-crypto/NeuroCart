@@ -358,7 +358,7 @@ function QualitySlider() {
       <div style={{ position: "relative", marginBottom: "24px" }}>
         <div style={{ position: "absolute", left: "80%", top: "-28px", transform: "translateX(-50%)" }}>
           <div style={{ fontSize: "8px", color: T.text.disabled, fontFamily: "monospace", textAlign: "center" }}>THRESHOLD</div>
-          <div style={{ width: "1px", height: "8px", background: T.text.disabled, margin: "2px auto 0" }} />
+          <div style={{ width: "3px", height: "8px", background: T.text.disabled, margin: "2px auto 0" }} />
         </div>
       </div>
 
