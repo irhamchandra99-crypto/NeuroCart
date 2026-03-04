@@ -12,38 +12,39 @@ import {
 // ── DESIGN TOKENS ────────────────────────────────────────────
 const T = {
   text: {
-    primary:   "#ffffff",
-    secondary: "#aaaaaa",
-    muted:     "#6ee7b7",
-    disabled:  "#333333",
-    accent:    "#4ade80",
+    primary:  "#ffffff",
+    secondary:"#aaaaaa",
+    muted:    "#6ee7b7",
+    disabled: "#333333",
+    accent:   "#4ade80",
   },
   border: {
     default: "#111111",
     subtle:  "#0d0d0d",
     accent:  "rgba(74,222,128,0.15)",
-    active:  "rgba(74,222,128,0.3)",
+    glow:    "rgba(74,222,128,0.3)",
   },
   bg: {
-    base:     "#050505",
-    card:     "#080808",
-    elevated: "#0d0d0d",
+    base:    "#050505",
+    card:    "#080808",
+    elevated:"#0d0d0d",
+    glass:   "rgba(5,5,5,0.85)",
   },
 };
 
+// Reputation tier
+function getTier(rep: number): { label: string; color: string; glow: string } {
+  if (rep >= 90) return { label: "ELITE",  color: "#4ade80", glow: "rgba(74,222,128,0.25)"  };
+  if (rep >= 80) return { label: "PRO",    color: "#4ade80", glow: "rgba(74,222,128,0.15)"  };
+  if (rep >= 60) return { label: "FAIR",   color: "#fbbf24", glow: "rgba(251,191,36,0.15)"  };
+  return              { label: "NEW",    color: "#f87171", glow: "rgba(248,113,113,0.15)" };
+}
+
 type AgentUI = {
-  id: number;
-  name: string;
-  skills: string[];
-  priceDisplay: string;
-  priceUSDCents: number;
-  reputation: number;
-  totalJobs: number;
-  activeJobs: number;
-  isActive: boolean;
-  owner: string;
-  endpoint: string;
-  stakeAmount: string;
+  id: number; name: string; skills: string[];
+  priceDisplay: string; priceUSDCents: number;
+  reputation: number; totalJobs: number; activeJobs: number;
+  isActive: boolean; owner: string; endpoint: string; stakeAmount: string;
 };
 
 const MOCK_AGENTS: AgentUI[] = [
@@ -55,7 +56,7 @@ const MOCK_AGENTS: AgentUI[] = [
 
 // ── AGENT DETAIL MODAL ───────────────────────────────────────
 function AgentDetailModal({ agent, onClose }: { agent: AgentUI; onClose: () => void }) {
-  const repColor = agent.reputation >= 80 ? T.text.accent : agent.reputation >= 60 ? "#fbbf24" : "#f87171";
+  const tier = getTier(agent.reputation);
 
   return (
     <motion.div
@@ -64,55 +65,64 @@ function AgentDetailModal({ agent, onClose }: { agent: AgentUI; onClose: () => v
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
       <motion.div
-        initial={{ y: 40, opacity: 0 }} animate={{ y: 0, opacity: 1 }}
-        exit={{ y: 40, opacity: 0 }} transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-        style={{ background: "#0a0a0a", border: `1px solid ${T.border.default}`, borderTop: `3px solid ${T.text.accent}`, padding: "40px", maxWidth: "560px", width: "100%", maxHeight: "90vh", overflowY: "auto" }}
+        initial={{ y: 40, opacity: 0, scale: 0.97 }}
+        animate={{ y: 0, opacity: 1, scale: 1 }}
+        exit={{ y: 40, opacity: 0, scale: 0.97 }}
+        transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
+        style={{ background: "#090909", border: `1px solid ${T.border.default}`, borderTop: `3px solid ${tier.color}`, padding: "40px", maxWidth: "580px", width: "100%", maxHeight: "90vh", overflowY: "auto", boxShadow: `0 0 60px ${tier.glow}` }}
       >
         {/* Header */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "32px" }}>
           <div>
-            <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px" }}>
-              <motion.div
-                animate={agent.isActive ? { opacity: [1, 0.3, 1] } : {}}
-                transition={{ duration: 2, repeat: Infinity }}
-                style={{ width: "6px", height: "6px", background: agent.isActive ? T.text.accent : T.text.disabled, boxShadow: agent.isActive ? `0 0 8px ${T.text.accent}` : "none" }}
+            <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "10px" }}>
+              <motion.div animate={agent.isActive ? { opacity: [1, 0.3, 1] } : {}} transition={{ duration: 2, repeat: Infinity }}
+                style={{ width: "6px", height: "6px", background: agent.isActive ? T.text.accent : T.text.disabled, boxShadow: agent.isActive ? `0 0 10px ${T.text.accent}` : "none" }}
               />
               <span style={{ fontSize: "10px", color: agent.isActive ? T.text.muted : T.text.disabled, fontFamily: "monospace", letterSpacing: "0.2em" }}>
                 {agent.isActive ? "ACTIVE" : "OFFLINE"}
               </span>
+              <span style={{ fontSize: "9px", padding: "2px 8px", background: `${tier.color}15`, border: `1px solid ${tier.color}30`, color: tier.color, fontFamily: "monospace", letterSpacing: "0.12em" }}>
+                {tier.label}
+              </span>
               <span style={{ fontSize: "10px", color: T.text.disabled, fontFamily: "monospace" }}>· ERC-8004</span>
             </div>
-            <h2 style={{ fontSize: "36px", fontWeight: 900, letterSpacing: "-0.03em", margin: 0, fontFamily: "var(--font-syne), sans-serif", lineHeight: 1, color: T.text.primary }}>
+            <h2 style={{ fontSize: "38px", fontWeight: 900, letterSpacing: "-0.03em", margin: 0, fontFamily: "var(--font-syne), sans-serif", lineHeight: 1, color: T.text.primary }}>
               {agent.name}
             </h2>
           </div>
-          <button onClick={onClose} style={{ background: "none", border: `1px solid ${T.border.default}`, color: T.text.disabled, cursor: "pointer", fontSize: "18px", width: "36px", height: "36px", display: "flex", alignItems: "center", justifyContent: "center" }}>×</button>
+          <button onClick={onClose}
+            style={{ background: "none", border: `1px solid ${T.border.default}`, color: T.text.disabled, cursor: "pointer", fontSize: "18px", width: "36px", height: "36px", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+            ×
+          </button>
         </div>
 
         {/* Stats grid */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "1px", background: T.border.default, marginBottom: "24px" }}>
           {[
-            { label: "PRICE",       value: agent.priceDisplay,        color: T.text.accent },
-            { label: "REPUTATION",  value: `${agent.reputation}/100`, color: repColor      },
+            { label: "PRICE",       value: agent.priceDisplay,        color: T.text.accent    },
+            { label: "REPUTATION",  value: `${agent.reputation}/100`, color: tier.color       },
             { label: "TOTAL JOBS",  value: String(agent.totalJobs),   color: T.text.secondary },
-            { label: "ACTIVE JOBS", value: String(agent.activeJobs),  color: "#fbbf24"     },
-            { label: "STAKE",       value: `${agent.stakeAmount} ETH`,color: "#60a5fa"     },
+            { label: "ACTIVE JOBS", value: String(agent.activeJobs),  color: "#fbbf24"        },
+            { label: "STAKE (ETH)", value: agent.stakeAmount,         color: "#60a5fa"        },
             { label: "AGENT ID",    value: `#${String(agent.id).padStart(3, "0")}`, color: T.text.disabled },
           ].map((s) => (
             <div key={s.label} style={{ padding: "16px", background: T.bg.card }}>
               <div style={{ fontSize: "9px", color: T.text.muted, marginBottom: "6px", letterSpacing: "0.15em", fontFamily: "monospace", opacity: 0.6 }}>{s.label}</div>
-              <div style={{ fontSize: "16px", fontWeight: 900, fontFamily: "var(--font-syne), sans-serif", color: s.color }}>{s.value}</div>
+              <div style={{ fontSize: "17px", fontWeight: 900, fontFamily: "var(--font-syne), sans-serif", color: s.color }}>{s.value}</div>
             </div>
           ))}
         </div>
 
         {/* Rep bar */}
         <div style={{ marginBottom: "24px" }}>
-          <div style={{ fontSize: "10px", color: T.text.muted, fontFamily: "monospace", letterSpacing: "0.15em", marginBottom: "8px", opacity: 0.7 }}>REPUTATION SCORE</div>
-          <div style={{ height: "4px", background: T.border.default }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+            <span style={{ fontSize: "10px", color: T.text.muted, fontFamily: "monospace", letterSpacing: "0.15em", opacity: 0.7 }}>REPUTATION SCORE</span>
+            <span style={{ fontSize: "10px", color: tier.color, fontFamily: "monospace", fontWeight: 700 }}>{agent.reputation}/100</span>
+          </div>
+          <div style={{ height: "4px", background: T.border.default, borderRadius: "0" }}>
             <motion.div initial={{ width: 0 }} animate={{ width: `${agent.reputation}%` }}
-              transition={{ duration: 1, ease: "easeOut" }}
-              style={{ height: "100%", background: repColor, boxShadow: `0 0 8px ${repColor}60` }}
+              transition={{ duration: 1.2, ease: "easeOut" }}
+              style={{ height: "100%", background: tier.color, boxShadow: `0 0 8px ${tier.glow}` }}
             />
           </div>
         </div>
@@ -122,7 +132,7 @@ function AgentDetailModal({ agent, onClose }: { agent: AgentUI; onClose: () => v
           <div style={{ fontSize: "10px", color: T.text.muted, fontFamily: "monospace", letterSpacing: "0.15em", marginBottom: "10px", opacity: 0.7 }}>SKILLS</div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
             {agent.skills.map((skill) => (
-              <span key={skill} style={{ fontSize: "11px", padding: "5px 12px", background: "rgba(74,222,128,0.05)", border: "1px solid rgba(74,222,128,0.12)", color: T.text.muted, fontFamily: "monospace" }}>
+              <span key={skill} style={{ fontSize: "11px", padding: "5px 12px", background: "rgba(74,222,128,0.05)", border: "1px solid rgba(74,222,128,0.15)", color: T.text.muted, fontFamily: "monospace" }}>
                 {skill}
               </span>
             ))}
@@ -136,14 +146,14 @@ function AgentDetailModal({ agent, onClose }: { agent: AgentUI; onClose: () => v
             <div style={{ fontSize: "12px", color: T.text.secondary, fontFamily: "monospace" }}>{agent.owner}</div>
           </div>
           <div>
-            <div style={{ fontSize: "9px", color: T.text.muted, fontFamily: "monospace", letterSpacing: "0.15em", marginBottom: "4px", opacity: 0.6 }}>ENDPOINT (x402 ENABLED)</div>
+            <div style={{ fontSize: "9px", color: T.text.muted, fontFamily: "monospace", letterSpacing: "0.15em", marginBottom: "4px", opacity: 0.6 }}>ENDPOINT (x402)</div>
             <div style={{ fontSize: "12px", color: T.text.secondary, fontFamily: "monospace", wordBreak: "break-all" }}>{agent.endpoint}</div>
           </div>
         </div>
 
-        {/* x402 badge */}
+        {/* x402 info */}
         <div style={{ padding: "12px 16px", background: "rgba(96,165,250,0.04)", border: "1px solid rgba(96,165,250,0.1)", fontSize: "11px", color: "#60a5fa", fontFamily: "monospace", lineHeight: 1.6 }}>
-          ⚡ x402 PROTOCOL — Agent ini dapat di-hire otomatis oleh AI agent lain tanpa human approval
+          ⚡ x402 PROTOCOL — Agent dapat di-hire otomatis oleh AI agent lain tanpa human approval
         </div>
       </motion.div>
     </motion.div>
@@ -156,156 +166,265 @@ function AgentCard({ agent, index, onDetail }: { agent: AgentUI; index: number; 
   const cardRef = useRef<HTMLDivElement>(null);
   const rotateX = useMotionValue(0);
   const rotateY = useMotionValue(0);
-  const springX = useSpring(rotateX, { stiffness: 150, damping: 20 });
-  const springY = useSpring(rotateY, { stiffness: 150, damping: 20 });
+  const springX = useSpring(rotateX, { stiffness: 120, damping: 18 });
+  const springY = useSpring(rotateY, { stiffness: 120, damping: 18 });
+  const tier = getTier(agent.reputation);
 
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!cardRef.current) return;
     const rect = cardRef.current.getBoundingClientRect();
-    rotateX.set((e.clientY - (rect.top + rect.height / 2)) / 25);
-    rotateY.set(-((e.clientX - (rect.left + rect.width / 2)) / 25));
+    rotateX.set((e.clientY - (rect.top + rect.height / 2)) / 30);
+    rotateY.set(-((e.clientX - (rect.left + rect.width / 2)) / 30));
   };
 
-  const repColor = agent.reputation >= 80 ? T.text.accent : agent.reputation >= 60 ? "#fbbf24" : "#f87171";
+  const handleMouseLeave = () => {
+    setHovered(false);
+    rotateX.set(0);
+    rotateY.set(0);
+  };
 
   return (
     <motion.div
       ref={cardRef}
       initial={{ opacity: 0, y: 24 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: index * 0.06, duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
+      animate={{ opacity: agent.isActive ? 1 : 0.5, y: 0 }}
+      transition={{ delay: index * 0.07, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
       onHoverStart={() => setHovered(true)}
-      onHoverEnd={() => { setHovered(false); rotateX.set(0); rotateY.set(0); }}
+      onHoverEnd={handleMouseLeave}
       onMouseMove={handleMouseMove}
       onClick={onDetail}
-      style={{ rotateX: springX, rotateY: springY, transformPerspective: 1000, willChange: "transform", cursor: "pointer" }}
+      style={{
+        rotateX: springX, rotateY: springY,
+        transformPerspective: 1000,
+        willChange: "transform",
+        cursor: "pointer",
+      }}
     >
       <div style={{
-        padding: "24px",
+        padding: "28px",
         background: hovered ? T.bg.elevated : T.bg.card,
-        border: `1px solid ${hovered ? T.border.accent : T.border.default}`,
-        borderTop: `2px solid ${agent.isActive ? (hovered ? T.text.accent : "rgba(74,222,128,0.35)") : T.border.default}`,
+        border: `1px solid ${hovered ? T.border.glow : T.border.default}`,
+        borderTop: `2px solid ${agent.isActive
+          ? (hovered ? tier.color : `${tier.color}55`)
+          : T.border.default}`,
         transition: "background 0.2s, border-color 0.2s, box-shadow 0.2s",
-        boxShadow: hovered ? "0 8px 32px rgba(74,222,128,0.06)" : "none",
-        opacity: agent.isActive ? 1 : 0.55,
+        boxShadow: hovered ? `0 12px 40px ${tier.glow}, 0 2px 8px rgba(0,0,0,0.5)` : "none",
+        height: "100%",
+        boxSizing: "border-box" as const,
       }}>
-        {/* Header row */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-            <motion.div
-              animate={agent.isActive ? { opacity: [1, 0.3, 1] } : {}}
-              transition={{ duration: 2, repeat: Infinity }}
-              style={{ width: "5px", height: "5px", background: agent.isActive ? T.text.accent : T.text.disabled, boxShadow: agent.isActive ? `0 0 8px ${T.text.accent}` : "none" }}
-            />
-            <span style={{ fontSize: "10px", color: agent.isActive ? T.text.muted : T.text.disabled, fontFamily: "monospace", letterSpacing: "0.2em", fontWeight: 700 }}>
-              {agent.isActive ? "ACTIVE" : "OFFLINE"}
+
+        {/* Top row: status + ID + running badge */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            {/* Status dot */}
+            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+              <motion.div
+                animate={agent.isActive ? { opacity: [1, 0.2, 1] } : {}}
+                transition={{ duration: 2.2, repeat: Infinity }}
+                style={{ width: "6px", height: "6px", background: agent.isActive ? T.text.accent : T.text.disabled, boxShadow: agent.isActive ? `0 0 10px ${T.text.accent}` : "none" }}
+              />
+              <span style={{ fontSize: "10px", color: agent.isActive ? T.text.muted : T.text.disabled, fontFamily: "monospace", letterSpacing: "0.18em", fontWeight: 700 }}>
+                {agent.isActive ? "ACTIVE" : "OFFLINE"}
+              </span>
+            </div>
+
+            {/* Tier badge */}
+            <span style={{ fontSize: "9px", padding: "2px 7px", background: `${tier.color}10`, border: `1px solid ${tier.color}25`, color: tier.color, fontFamily: "monospace", letterSpacing: "0.1em" }}>
+              {tier.label}
             </span>
           </div>
+
           <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            {/* Running jobs badge */}
             {agent.activeJobs > 0 && (
-              <span style={{ fontSize: "9px", padding: "3px 8px", background: "rgba(251,191,36,0.06)", border: "1px solid rgba(251,191,36,0.15)", color: "#fbbf24", fontFamily: "monospace" }}>
+              <motion.span
+                animate={{ opacity: [1, 0.6, 1] }}
+                transition={{ duration: 1.8, repeat: Infinity }}
+                style={{ fontSize: "9px", padding: "3px 8px", background: "rgba(251,191,36,0.06)", border: "1px solid rgba(251,191,36,0.2)", color: "#fbbf24", fontFamily: "monospace" }}
+              >
                 {agent.activeJobs} RUNNING
-              </span>
+              </motion.span>
             )}
-            <span style={{ fontSize: "10px", color: T.text.disabled, fontFamily: "monospace" }}>#{String(agent.id).padStart(3, "0")}</span>
+            <span style={{ fontSize: "10px", color: T.text.disabled, fontFamily: "monospace" }}>
+              #{String(agent.id).padStart(3, "0")}
+            </span>
           </div>
         </div>
 
-        {/* Name */}
-        <h3 style={{ fontSize: "26px", fontWeight: 900, letterSpacing: "-0.03em", lineHeight: 1, marginBottom: "4px", fontFamily: "var(--font-syne), sans-serif", color: hovered ? T.text.primary : "#ddd", transition: "color 0.2s" }}>
+        {/* Name — strongest element */}
+        <h3 style={{
+          fontSize: "clamp(22px, 2.2vw, 30px)",
+          fontWeight: 900, letterSpacing: "-0.03em", lineHeight: 1,
+          marginBottom: "6px",
+          fontFamily: "var(--font-syne), sans-serif",
+          color: hovered ? T.text.primary : "#e0e0e0",
+          transition: "color 0.2s",
+        }}>
           {agent.name}
         </h3>
-        <p style={{ fontSize: "10px", color: T.text.muted, fontFamily: "monospace", marginBottom: "16px", opacity: 0.5 }}>{agent.owner}</p>
 
-        {/* Skills */}
-        <div style={{ display: "flex", flexWrap: "wrap", gap: "5px", marginBottom: "20px" }}>
+        {/* Owner */}
+        <p style={{ fontSize: "10px", color: T.text.muted, fontFamily: "monospace", marginBottom: "18px", opacity: 0.45 }}>
+          {agent.owner}
+        </p>
+
+        {/* Skill tags */}
+        <div style={{ display: "flex", flexWrap: "wrap", gap: "5px", marginBottom: "24px" }}>
           {agent.skills.map((skill) => (
-            <span key={skill} style={{ fontSize: "10px", padding: "3px 8px", background: "rgba(110,231,183,0.05)", border: "1px solid rgba(110,231,183,0.1)", color: T.text.muted, fontFamily: "monospace", letterSpacing: "0.08em" }}>
+            <span key={skill} style={{
+              fontSize: "10px", padding: "3px 9px",
+              background: hovered ? "rgba(110,231,183,0.07)" : "rgba(110,231,183,0.04)",
+              border: `1px solid ${hovered ? "rgba(110,231,183,0.18)" : "rgba(110,231,183,0.1)"}`,
+              color: T.text.muted, fontFamily: "monospace", letterSpacing: "0.08em",
+              transition: "all 0.2s",
+            }}>
               {skill}
             </span>
           ))}
         </div>
 
-        {/* Stats */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "1px", background: T.border.default, marginBottom: "14px" }}>
+        {/* Divider */}
+        <div style={{ height: "1px", background: T.border.subtle, marginBottom: "20px" }} />
+
+        {/* Stats row */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "1px", background: T.border.default, marginBottom: "16px" }}>
           {[
             { label: "PRICE", value: agent.priceDisplay,      color: T.text.accent    },
-            { label: "REP",   value: String(agent.reputation), color: repColor         },
+            { label: "REP",   value: String(agent.reputation), color: tier.color       },
             { label: "JOBS",  value: String(agent.totalJobs),  color: T.text.secondary },
           ].map((s) => (
-            <div key={s.label} style={{ padding: "10px 12px", background: T.bg.card }}>
-              <div style={{ fontSize: "9px", color: T.text.muted, marginBottom: "4px", letterSpacing: "0.15em", fontFamily: "monospace", opacity: 0.6 }}>{s.label}</div>
-              <div style={{ fontSize: "17px", fontWeight: 900, fontFamily: "var(--font-syne), sans-serif", color: s.color }}>{s.value}</div>
+            <div key={s.label} style={{ padding: "12px", background: hovered ? T.bg.elevated : T.bg.card, transition: "background 0.2s" }}>
+              <div style={{ fontSize: "9px", color: T.text.muted, marginBottom: "5px", letterSpacing: "0.15em", fontFamily: "monospace", opacity: 0.55 }}>{s.label}</div>
+              <div style={{ fontSize: "18px", fontWeight: 900, fontFamily: "var(--font-syne), sans-serif", color: s.color }}>{s.value}</div>
             </div>
           ))}
         </div>
 
-        {/* Rep bar */}
-        <div style={{ height: "2px", background: T.border.default, marginBottom: "14px", overflow: "hidden" }}>
+        {/* Reputation bar */}
+        <div style={{ height: "2px", background: T.border.default, marginBottom: "20px", overflow: "hidden" }}>
           <motion.div
-            initial={{ width: 0 }} animate={{ width: `${agent.reputation}%` }}
-            transition={{ delay: index * 0.06 + 0.3, duration: 0.8, ease: "easeOut" }}
-            style={{ height: "100%", background: repColor, boxShadow: `0 0 6px ${repColor}50` }}
+            initial={{ width: 0 }}
+            animate={{ width: `${agent.reputation}%` }}
+            transition={{ delay: index * 0.07 + 0.35, duration: 1.2, ease: "easeOut" }}
+            style={{ height: "100%", background: tier.color, boxShadow: hovered ? `0 0 8px ${tier.glow}` : "none", transition: "box-shadow 0.3s" }}
           />
         </div>
 
-        {/* Footer */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <span style={{ fontSize: "10px", color: T.text.muted, fontFamily: "monospace", opacity: 0.5 }}>
-            STAKE: {agent.stakeAmount} ETH
+        {/* CTA */}
+        <motion.div
+          whileTap={{ scale: 0.97 }}
+          style={{
+            padding: "11px 16px",
+            display: "flex", justifyContent: "space-between", alignItems: "center",
+            background: hovered
+              ? (agent.isActive ? `${tier.color}12` : "transparent")
+              : "transparent",
+            border: `1px solid ${hovered
+              ? (agent.isActive ? `${tier.color}30` : T.border.default)
+              : T.border.default}`,
+            transition: "all 0.2s",
+          }}
+        >
+          <span style={{ fontSize: "11px", fontWeight: 700, letterSpacing: "0.15em", fontFamily: "monospace", color: agent.isActive ? (hovered ? tier.color : T.text.disabled) : T.text.disabled, transition: "color 0.2s" }}>
+            {agent.isActive ? "VIEW DETAIL" : "OFFLINE"}
           </span>
-          <span style={{ fontSize: "10px", color: hovered ? T.text.accent : T.text.disabled, fontFamily: "monospace", transition: "color 0.2s", letterSpacing: "0.1em" }}>
-            DETAIL →
-          </span>
-        </div>
+          <motion.span
+            animate={hovered && agent.isActive ? { x: [0, 4, 0] } : { x: 0 }}
+            transition={{ duration: 0.6, repeat: hovered ? Infinity : 0 }}
+            style={{ fontSize: "12px", color: agent.isActive ? (hovered ? tier.color : T.text.disabled) : T.text.disabled, transition: "color 0.2s" }}
+          >
+            →
+          </motion.span>
+        </motion.div>
       </div>
     </motion.div>
   );
 }
 
-// ── FILTER BAR ───────────────────────────────────────────────
+// ── STICKY FILTER BAR ─────────────────────────────────────────
 type FilterState = { status: "all" | "active" | "offline"; skill: string; sort: "rep" | "jobs" | "price" };
 
-function FilterBar({ filters, setFilters, allSkills, total }: {
-  filters: FilterState; setFilters: (f: FilterState) => void;
-  allSkills: string[]; total: number;
+function FilterBar({ filters, setFilters, allSkills, counts }: {
+  filters: FilterState;
+  setFilters: (f: FilterState) => void;
+  allSkills: string[];
+  counts: { all: number; active: number; offline: number };
 }) {
   return (
-    <div style={{ display: "flex", gap: "8px", marginBottom: "28px", flexWrap: "wrap", alignItems: "center", padding: "16px 20px", background: T.bg.card, border: `1px solid ${T.border.default}` }}>
-      {/* Status filters */}
-      {(["all", "active", "offline"] as const).map((s) => (
-        <button key={s} onClick={() => setFilters({ ...filters, status: s })}
-          style={{ padding: "6px 14px", fontSize: "10px", fontWeight: 700, letterSpacing: "0.15em", cursor: "pointer", background: filters.status === s ? T.text.accent : "transparent", color: filters.status === s ? "#000" : T.text.disabled, border: `1px solid ${filters.status === s ? T.text.accent : T.border.default}`, fontFamily: "monospace", transition: "all 0.15s" }}
+    <div style={{
+      position: "sticky", top: "72px", zIndex: 50,
+      backdropFilter: "blur(16px)",
+      background: "rgba(5,5,5,0.88)",
+      border: `1px solid ${T.border.default}`,
+      borderTop: `1px solid ${T.border.subtle}`,
+      padding: "14px 20px",
+      display: "flex", gap: "6px", flexWrap: "wrap", alignItems: "center",
+      marginBottom: "24px",
+    }}>
+      {/* Status filters with count */}
+      {([
+        ["all",     "ALL",     counts.all    ],
+        ["active",  "ACTIVE",  counts.active ],
+        ["offline", "OFFLINE", counts.offline],
+      ] as const).map(([val, label, count]) => (
+        <button key={val} onClick={() => setFilters({ ...filters, status: val })}
+          style={{
+            padding: "6px 14px", fontSize: "10px", fontWeight: 700,
+            letterSpacing: "0.15em", cursor: "pointer",
+            background: filters.status === val ? T.text.accent : "transparent",
+            color: filters.status === val ? "#000" : T.text.disabled,
+            border: `1px solid ${filters.status === val ? T.text.accent : T.border.default}`,
+            fontFamily: "monospace", transition: "all 0.15s",
+            display: "flex", alignItems: "center", gap: "6px",
+          }}
         >
-          {s.toUpperCase()}
+          {label}
+          <span style={{ fontSize: "9px", opacity: 0.7 }}>· {count}</span>
         </button>
       ))}
 
-      <div style={{ width: "1px", height: "18px", background: T.border.default, margin: "0 4px" }} />
+      <div style={{ width: "1px", height: "18px", background: T.border.default, margin: "0 6px" }} />
 
-      {/* Skill filter */}
+      {/* Skill dropdown */}
       <select value={filters.skill} onChange={(e) => setFilters({ ...filters, skill: e.target.value })}
-        style={{ padding: "6px 12px", fontSize: "10px", background: T.bg.card, border: `1px solid ${filters.skill ? T.border.accent : T.border.default}`, color: filters.skill ? T.text.muted : T.text.disabled, fontFamily: "monospace", cursor: "pointer" }}
+        style={{
+          padding: "6px 12px", fontSize: "10px",
+          background: T.bg.card,
+          border: `1px solid ${filters.skill ? T.border.accent : T.border.default}`,
+          color: filters.skill ? T.text.muted : T.text.disabled,
+          fontFamily: "monospace", cursor: "pointer", outline: "none",
+        }}
       >
         <option value="">ALL SKILLS</option>
-        {allSkills.map((skill) => <option key={skill} value={skill} style={{ background: "#0d0d0d" }}>{skill.toUpperCase()}</option>)}
+        {allSkills.map((s) => <option key={s} value={s} style={{ background: "#0d0d0d" }}>{s.toUpperCase()}</option>)}
       </select>
 
-      <div style={{ width: "1px", height: "18px", background: T.border.default, margin: "0 4px" }} />
+      <div style={{ width: "1px", height: "18px", background: T.border.default, margin: "0 6px" }} />
 
       {/* Sort */}
-      {([["rep", "BY REPUTATION"], ["jobs", "BY JOBS"], ["price", "BY PRICE"]] as const).map(([val, label]) => (
+      {([
+        ["rep",   "REPUTATION"],
+        ["jobs",  "JOBS"      ],
+        ["price", "PRICE"     ],
+      ] as const).map(([val, label]) => (
         <button key={val} onClick={() => setFilters({ ...filters, sort: val })}
-          style={{ padding: "6px 12px", fontSize: "10px", fontWeight: 700, letterSpacing: "0.12em", cursor: "pointer", background: "transparent", color: filters.sort === val ? T.text.primary : T.text.disabled, border: "none", borderBottom: `1px solid ${filters.sort === val ? T.text.accent : "transparent"}`, fontFamily: "monospace", transition: "all 0.15s" }}
+          style={{
+            padding: "6px 12px", fontSize: "10px", fontWeight: 700,
+            letterSpacing: "0.12em", cursor: "pointer", background: "transparent",
+            color: filters.sort === val ? T.text.primary : T.text.disabled,
+            border: "none",
+            borderBottom: `2px solid ${filters.sort === val ? T.text.accent : "transparent"}`,
+            fontFamily: "monospace", transition: "all 0.15s",
+          }}
         >
           {label}
         </button>
       ))}
 
       {/* Count */}
-      <div style={{ marginLeft: "auto", fontSize: "10px", color: T.text.muted, fontFamily: "monospace", opacity: 0.6 }}>
-        {total} AGENT{total !== 1 ? "S" : ""}
-      </div>
+      <span style={{ marginLeft: "auto", fontSize: "10px", color: T.text.muted, fontFamily: "monospace", opacity: 0.5 }}>
+        {counts.all} TOTAL
+      </span>
     </div>
   );
 }
@@ -374,7 +493,7 @@ function AgentsContent({ useRealData, selectedAgent, setSelectedAgent, filters, 
         id: i, name: raw.name, skills: skillsRaw ?? [],
         priceDisplay: `$${(Number(raw.priceUSDCents) / 100).toFixed(2)}`,
         priceUSDCents: Number(raw.priceUSDCents), reputation: rep,
-        totalJobs: Number(raw.totalJobs), activeJobs: Number(raw.activeJobs),
+        totalJobs: Number(raw.totalJobs), activeJobs: Number(raw.activeJobs ?? 0),
         isActive: raw.isActive,
         owner: `${(raw.owner as string).slice(0, 6)}...${(raw.owner as string).slice(-4)}`,
         endpoint: raw.endpoint,
@@ -396,50 +515,53 @@ function AgentsContent({ useRealData, selectedAgent, setSelectedAgent, filters, 
   }, [agents, filters]);
 
   const allSkills = useMemo(() => [...new Set(agents.flatMap((a) => a.skills))].sort(), [agents]);
-  const activeCount = agents.filter((a) => a.isActive).length;
-  const avgRep = agents.length > 0 ? Math.round(agents.reduce((acc, a) => acc + a.reputation, 0) / agents.length) : 0;
+  const counts = {
+    all:     agents.length,
+    active:  agents.filter((a) => a.isActive).length,
+    offline: agents.filter((a) => !a.isActive).length,
+  };
+  const avgRep = agents.length > 0 ? Math.round(agents.reduce((s, a) => s + a.reputation, 0) / agents.length) : 0;
 
   return (
     <div style={{ minHeight: "100vh", background: "transparent", fontFamily: "var(--font-space), sans-serif", color: T.text.primary }}>
       <div style={{ maxWidth: "1400px", margin: "0 auto", padding: "40px 48px" }}>
 
         {/* Page header */}
-        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}
           style={{ marginBottom: "32px" }}
         >
           <p style={{ fontSize: "10px", color: T.text.muted, fontFamily: "monospace", letterSpacing: "0.25em", marginBottom: "10px" }}>
             ERC-8004 REGISTRY
           </p>
-          <h1 style={{ fontSize: "clamp(32px, 4vw, 56px)", fontWeight: 900, letterSpacing: "-0.04em", fontFamily: "var(--font-syne), sans-serif", margin: "0 0 12px", color: T.text.primary }}>
-            AI AGENTS
-          </h1>
-          <p style={{ fontSize: "14px", color: T.text.secondary, maxWidth: "480px", lineHeight: 1.6, margin: 0 }}>
-            Autonomous agents registered on-chain. Each agent has a staked identity, verified reputation, and x402-enabled endpoint.
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: "16px" }}>
+            <h1 style={{ fontSize: "clamp(36px, 5vw, 64px)", fontWeight: 900, letterSpacing: "-0.04em", fontFamily: "var(--font-syne), sans-serif", margin: 0, color: T.text.primary }}>
+              AI AGENTS
+            </h1>
+            {/* Mini stats */}
+            <div style={{ display: "flex", gap: "1px", background: T.border.subtle }}>
+              {[
+                { label: "TOTAL",   value: counts.all              },
+                { label: "ACTIVE",  value: counts.active           },
+                { label: "AVG REP", value: avgRep                  },
+              ].map((s) => (
+                <div key={s.label} style={{ padding: "10px 20px", background: T.bg.card, textAlign: "center" }}>
+                  <div style={{ fontSize: "9px", color: T.text.muted, fontFamily: "monospace", letterSpacing: "0.12em", marginBottom: "4px", opacity: 0.6 }}>{s.label}</div>
+                  <div style={{ fontSize: "18px", fontWeight: 900, fontFamily: "var(--font-syne), sans-serif", color: T.text.primary }}>{s.value}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+          <p style={{ fontSize: "13px", color: T.text.secondary, maxWidth: "520px", lineHeight: 1.6, margin: "14px 0 0" }}>
+            Autonomous agents on-chain. Staked identity, verified reputation, x402-enabled endpoints.
           </p>
         </motion.div>
 
-        {/* Mini stats bar */}
-        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
-          style={{ display: "grid", gridTemplateColumns: "repeat(3, auto) 1fr", gap: "1px", background: T.border.subtle, marginBottom: "24px", width: "fit-content" }}
-        >
-          {[
-            { label: "TOTAL",   value: String(agents.length) },
-            { label: "ACTIVE",  value: String(activeCount)   },
-            { label: "AVG REP", value: String(avgRep)        },
-          ].map((s) => (
-            <div key={s.label} style={{ padding: "12px 24px", background: T.bg.card }}>
-              <div style={{ fontSize: "9px", color: T.text.muted, fontFamily: "monospace", letterSpacing: "0.15em", marginBottom: "4px", opacity: 0.6 }}>{s.label}</div>
-              <div style={{ fontSize: "20px", fontWeight: 900, fontFamily: "var(--font-syne), sans-serif", color: T.text.primary }}>{s.value}</div>
-            </div>
-          ))}
-        </motion.div>
-
-        {/* Filter bar */}
+        {/* Sticky Filter bar */}
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.15 }}>
-          <FilterBar filters={filters} setFilters={setFilters} allSkills={allSkills} total={filteredAgents.length} />
+          <FilterBar filters={filters} setFilters={setFilters} allSkills={allSkills} counts={counts} />
         </motion.div>
 
-        {/* Agent grid */}
+        {/* Grid */}
         <AnimatePresence mode="wait">
           <motion.div
             key={`${filters.status}-${filters.skill}-${filters.sort}`}
@@ -449,7 +571,9 @@ function AgentsContent({ useRealData, selectedAgent, setSelectedAgent, filters, 
           >
             {filteredAgents.length === 0 ? (
               <div style={{ gridColumn: "1 / -1", padding: "80px", textAlign: "center", background: T.bg.card }}>
-                <p style={{ fontSize: "12px", color: T.text.disabled, fontFamily: "monospace", letterSpacing: "0.1em" }}>NO AGENTS MATCH FILTER</p>
+                <p style={{ fontSize: "12px", color: T.text.disabled, fontFamily: "monospace", letterSpacing: "0.1em" }}>
+                  NO AGENTS MATCH CURRENT FILTER
+                </p>
               </div>
             ) : (
               filteredAgents.map((agent, i) => (
@@ -460,6 +584,7 @@ function AgentsContent({ useRealData, selectedAgent, setSelectedAgent, filters, 
         </AnimatePresence>
       </div>
 
+      {/* Detail Modal */}
       <AnimatePresence>
         {selectedAgent && (
           <AgentDetailModal agent={selectedAgent} onClose={() => setSelectedAgent(null)} />
