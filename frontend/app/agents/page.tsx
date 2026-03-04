@@ -476,7 +476,7 @@ function AgentsContent({ useRealData, selectedAgent, setSelectedAgent, filters, 
           <FilterBar filters={filters} setFilters={setFilters} allSkills={allSkills} counts={counts} />
 
           {/* Cards */}
-          <div style={{ padding: "16px", background: T.bg.page, display: "flex", flexDirection: "column", gap: "10px" }}>
+          <div style={{ padding: "16px", background: T.bg.page, display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "10px" }}>
             {filteredAgents.length === 0 ? (
               <div style={{ padding: "60px", textAlign: "center", color: T.text.disabled, fontSize: "12px", fontFamily: "monospace", letterSpacing: "0.1em" }}>
                 NO AGENTS MATCH YOUR FILTER

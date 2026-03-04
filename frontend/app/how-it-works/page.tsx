@@ -121,17 +121,25 @@ const TECH_TABS = [
   },
 ];
 
+// ── PASTE INI UNTUK REPLACE bagian ENTITIES, AnimatedDot, dan SystemDiagram ──
+// Di file: frontend/app/how-it-works/page.tsx
+// Cari mulai dari "// ── SYSTEM DIAGRAM ────" sampai akhir function SystemDiagram, replace semua dengan ini:
+
 // ── SYSTEM DIAGRAM ────────────────────────────────────────────
+const NODE_W = 90;
+const NODE_H = 38;
+
 const ENTITIES = [
-  { id: "CLIENT",   label: "CLIENT",    x: 80,  y: 180, color: "#60a5fa" },
-  { id: "CONTRACT", label: "SMART\nCONTRACT", x: 280, y: 80,  color: "#4ade80" },
-  { id: "ESCROW",   label: "ESCROW",    x: 280, y: 280, color: "#fbbf24" },
-  { id: "AGENT",    label: "AGENT",     x: 480, y: 180, color: "#e879f9" },
-  { id: "CHAINLINK",label: "CHAINLINK", x: 380, y: 30,  color: "#375BD2" },
+  { id: "CLIENT",    label: ["CLIENT"],           x: 80,  y: 140, color: "#60a5fa" },
+  { id: "CONTRACT",  label: ["SMART", "CONTRACT"], x: 270, y: 60,  color: "#4ade80" },
+  { id: "ESCROW",    label: ["ESCROW"],            x: 270, y: 220, color: "#fbbf24" },
+  { id: "AGENT",     label: ["AGENT"],             x: 460, y: 140, color: "#e879f9" },
+  { id: "CHAINLINK", label: ["CHAINLINK"],         x: 460, y: 30,  color: "#375BD2" },
 ];
 
 const CONNECTIONS = [
   { from: "CLIENT",    to: "CONTRACT"  },
+  { from: "CLIENT",    to: "ESCROW"    },
   { from: "CONTRACT",  to: "ESCROW"    },
   { from: "CONTRACT",  to: "AGENT"     },
   { from: "AGENT",     to: "CONTRACT"  },
@@ -140,6 +148,11 @@ const CONNECTIONS = [
   { from: "ESCROW",    to: "CLIENT"    },
 ];
 
+// Center of each node
+function nodeCenter(entity: typeof ENTITIES[0]) {
+  return { cx: entity.x + NODE_W / 2, cy: entity.y + NODE_H / 2 };
+}
+
 function AnimatedDot({ x1, y1, x2, y2, color }: { x1: number; y1: number; x2: number; y2: number; color: string }) {
   return (
     <motion.circle
@@ -147,114 +160,113 @@ function AnimatedDot({ x1, y1, x2, y2, color }: { x1: number; y1: number; x2: nu
       fill={color}
       filter={`drop-shadow(0 0 4px ${color})`}
       initial={{ cx: x1, cy: y1, opacity: 0 }}
-      animate={{
-        cx: [x1, x2],
-        cy: [y1, y2],
-        opacity: [0, 1, 1, 0],
-      }}
-      transition={{
-        duration: 1.6,
-        repeat: Infinity,
-        repeatDelay: 0.4,
-        ease: "easeInOut",
-        times: [0, 0.1, 0.9, 1],
-      }}
+      animate={{ cx: [x1, x2], cy: [y1, y2], opacity: [0, 1, 1, 0] }}
+      transition={{ duration: 1.6, repeat: Infinity, repeatDelay: 0.4, ease: "easeInOut", times: [0, 0.1, 0.9, 1] }}
     />
   );
 }
 
 function SystemDiagram({ activeEntities, stepColor }: { activeEntities: string[]; stepColor: string }) {
   const hasActive = activeEntities.length > 0;
+  const VW = 640;
+  const VH = 300;
 
   return (
-    <div style={{ position: "relative", width: "100%", height: "320px" }}>
-      <svg width="100%" height="320" viewBox="0 0 560 320"
-        style={{ position: "absolute", inset: 0, overflow: "visible" }}>
-
-        {/* Static lines first */}
+    <div style={{ width: "100%", aspectRatio: `${VW} / ${VH}` }}>
+      <svg
+        width="100%"
+        height="100%"
+        viewBox={`0 0 ${VW} ${VH}`}
+        preserveAspectRatio="xMidYMid meet"
+        style={{ display: "block", overflow: "visible" }}
+      >
+        {/* ── LINES ── */}
         {CONNECTIONS.map((conn) => {
           const from = ENTITIES.find((e) => e.id === conn.from)!;
           const to   = ENTITIES.find((e) => e.id === conn.to)!;
-          const isActive = hasActive
-            && activeEntities.includes(conn.from)
-            && activeEntities.includes(conn.to);
-
-          const x1 = from.x + 36;
-          const y1 = from.y + 18;
-          const x2 = to.x + 36;
-          const y2 = to.y + 18;
+          const isActive = hasActive && activeEntities.includes(conn.from) && activeEntities.includes(conn.to);
+          const { cx: x1, cy: y1 } = nodeCenter(from);
+          const { cx: x2, cy: y2 } = nodeCenter(to);
 
           return (
-            <g key={`line-${conn.from}-${conn.to}`}>
-              <line
-                x1={x1} y1={y1} x2={x2} y2={y2}
-                stroke={isActive ? stepColor : "#1a1a1a"}
-                strokeWidth={isActive ? 1.5 : 1}
-                strokeDasharray={isActive ? "none" : "4 4"}
-                style={{ transition: "stroke 0.4s, stroke-width 0.4s" }}
-              />
-            </g>
-          );
-        })}
-
-        {/* Animated dots — only on active connections */}
-        {CONNECTIONS.map((conn) => {
-          const from = ENTITIES.find((e) => e.id === conn.from)!;
-          const to   = ENTITIES.find((e) => e.id === conn.to)!;
-          const isActive = hasActive
-            && activeEntities.includes(conn.from)
-            && activeEntities.includes(conn.to);
-
-          if (!isActive) return null;
-
-          return (
-            <AnimatedDot
-              key={`dot-${conn.from}-${conn.to}`}
-              x1={from.x + 36} y1={from.y + 18}
-              x2={to.x + 36}   y2={to.y + 18}
-              color={stepColor}
+            <line
+              key={`${conn.from}-${conn.to}`}
+              x1={x1} y1={y1} x2={x2} y2={y2}
+              stroke={isActive ? stepColor : "#1a1a1a"}
+              strokeWidth={isActive ? 1.5 : 1}
+              strokeDasharray={isActive ? "none" : "4 4"}
+              style={{ transition: "stroke 0.4s, stroke-width 0.4s" }}
             />
           );
         })}
+
+        {/* ── ANIMATED DOTS on active connections ── */}
+        {CONNECTIONS.map((conn) => {
+          const from = ENTITIES.find((e) => e.id === conn.from)!;
+          const to   = ENTITIES.find((e) => e.id === conn.to)!;
+          const isActive = hasActive && activeEntities.includes(conn.from) && activeEntities.includes(conn.to);
+          if (!isActive) return null;
+          const { cx: x1, cy: y1 } = nodeCenter(from);
+          const { cx: x2, cy: y2 } = nodeCenter(to);
+          return <AnimatedDot key={`dot-${conn.from}-${conn.to}`} x1={x1} y1={y1} x2={x2} y2={y2} color={stepColor} />;
+        })}
+
+        {/* ── NODES — rendered in SVG so coords always match lines ── */}
+        {ENTITIES.map((entity) => {
+          const isHighlighted = hasActive && activeEntities.includes(entity.id);
+          const isDimmed      = hasActive && !activeEntities.includes(entity.id);
+
+          return (
+            <g
+              key={entity.id}
+              style={{ transition: "opacity 0.35s" }}
+              opacity={isDimmed ? 0.15 : 1}
+            >
+              {/* Node box */}
+              <rect
+                x={entity.x} y={entity.y}
+                width={NODE_W} height={NODE_H}
+                fill={isHighlighted ? `${stepColor}18` : "#1a1a1a"}
+                stroke={isHighlighted ? `${stepColor}66` : "#222222"}
+                strokeWidth={isHighlighted ? 1.5 : 1}
+                style={{ transition: "fill 0.35s, stroke 0.35s" }}
+              />
+
+              {/* Glow rect overlay */}
+              {isHighlighted && (
+                <rect
+                  x={entity.x} y={entity.y}
+                  width={NODE_W} height={NODE_H}
+                  fill="none"
+                  stroke={stepColor}
+                  strokeWidth={0.5}
+                  opacity={0.4}
+                  filter={`drop-shadow(0 0 6px ${stepColor})`}
+                />
+              )}
+
+              {/* Label lines — centered in node */}
+              {entity.label.map((line, i) => (
+                <text
+                  key={i}
+                  x={entity.x + NODE_W / 2}
+                  y={entity.y + NODE_H / 2 + (i - (entity.label.length - 1) / 2) * 13}
+                  textAnchor="middle"
+                  dominantBaseline="middle"
+                  fontSize="9"
+                  fontFamily="monospace"
+                  letterSpacing="1.2"
+                  fontWeight={isHighlighted ? "700" : "400"}
+                  fill={isHighlighted ? stepColor : "#444444"}
+                  style={{ transition: "fill 0.35s" }}
+                >
+                  {line}
+                </text>
+              ))}
+            </g>
+          );
+        })}
       </svg>
-
-      {/* Entity nodes */}
-      {ENTITIES.map((entity) => {
-        const isHighlighted = hasActive && activeEntities.includes(entity.id);
-        const isDimmed = hasActive && !activeEntities.includes(entity.id);
-
-        return (
-          <motion.div key={entity.id}
-            animate={{
-              opacity: isDimmed ? 0.15 : 1,
-              scale: isHighlighted ? 1.08 : 1,
-            }}
-            transition={{ duration: 0.35, ease: "easeOut" }}
-            style={{
-              position: "absolute",
-              left: entity.x, top: entity.y,
-              width: "72px",
-              padding: "10px 8px",
-              background: isHighlighted ? `${stepColor}18` : "#1a1a1a",
-              border: `1px solid ${isHighlighted ? stepColor + "55" : T.border.default}`,
-              textAlign: "center",
-              boxShadow: isHighlighted ? `0 0 24px ${stepColor}30` : "none",
-              transition: "background 0.35s, border-color 0.35s, box-shadow 0.35s",
-            }}
-          >
-            <div style={{
-              fontSize: "7px",
-              color: isHighlighted ? stepColor : T.text.disabled,
-              fontFamily: "monospace", letterSpacing: "0.1em",
-              lineHeight: 1.4, whiteSpace: "pre-line",
-              transition: "color 0.35s",
-              fontWeight: isHighlighted ? 700 : 400,
-            }}>
-              {entity.label}
-            </div>
-          </motion.div>
-        );
-      })}
     </div>
   );
 }
