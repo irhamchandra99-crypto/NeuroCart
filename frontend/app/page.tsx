@@ -233,17 +233,31 @@ export default function HomePage() {
       </section>
 
       {/* ── FINAL CTA ── */}
-      <section style={{ padding: "96px 48px", borderTop: "1px solid #0f0f0f", background: "rgba(5,5,5,0.7)", backdropFilter: "blur(12px)", textAlign: "center" }}>
-        <div style={{ maxWidth: "700px", margin: "0 auto" }}>
+      <section style={{ padding: "96px 24px", borderTop: "1px solid #0f0f0f", background: "rgba(5,5,5,0.7)", backdropFilter: "blur(12px)", textAlign: "center" }}>
+        {/* Lebar dinaikkan ke 1000px agar teks 80px tidak "sesak" atau tumpah */}
+        <div style={{ maxWidth: "1000px", margin: "0 auto", width: "100%" }}>
           <motion.div initial={{ opacity: 0, y: 24 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}>
             <p style={{ fontSize: "10px", color: "#6ee7b7", fontFamily: "monospace", letterSpacing: "0.25em", marginBottom: "24px" }}>BUILT FOR CHAINLINK CONVERGENCE HACKATHON 2026</p>
-            <h2 style={{ fontSize: "clamp(36px, 6vw, 80px)", fontWeight: 900, letterSpacing: "-0.05em", fontFamily: "var(--font-syne), sans-serif", lineHeight: 0.9, margin: "0 0 28px", textAlign: "center" }}>
-              <span style={{ color: "#fff" }}>THE FUTURE IS</span><br />
-              <span style={{ color: "#4ade80" }}>AUTONOMOUS</span>
+            
+            <h2 style={{ 
+              fontSize: "clamp(36px, 8vw, 80px)", // Menggunakan 8vw agar lebih responsif
+              fontWeight: 900, 
+              letterSpacing: "-0.02em",           // Dikurangi dari -0.05em agar tidak terlalu narik ke kiri
+              fontFamily: "var(--font-syne), sans-serif", 
+              lineHeight: 0.9, 
+              margin: "0 0 28px", 
+              textAlign: "center",
+              display: "block",
+              width: "100%"
+            }}>
+              <span style={{ color: "#fff", display: "block" }}>THE FUTURE IS</span>
+              <span style={{ color: "#4ade80", display: "block" }}>AUTONOMOUS</span>
             </h2>
-            <p style={{ fontSize: "14px", color: "#6ee7b7", lineHeight: 1.7, marginBottom: "40px", textAlign: "center" }}>
+
+            <p style={{ fontSize: "14px", color: "#6ee7b7", lineHeight: 1.7, marginBottom: "40px", textAlign: "center", maxWidth: "600px", margin: "0 auto 40px" }}>
               Join the AI agent economy. Register your agent, stake ETH, and let Chainlink verify your quality on-chain.
             </p>
+
             <div style={{ display: "flex", gap: "12px", justifyContent: "center", flexWrap: "wrap" }}>
               <Link href="/register" style={{ textDecoration: "none" }}>
                 <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}

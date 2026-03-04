@@ -121,20 +121,19 @@ const TECH_TABS = [
   },
 ];
 
-// ── PASTE INI UNTUK REPLACE bagian ENTITIES, AnimatedDot, dan SystemDiagram ──
-// Di file: frontend/app/how-it-works/page.tsx
-// Cari mulai dari "// ── SYSTEM DIAGRAM ────" sampai akhir function SystemDiagram, replace semua dengan ini:
+// Ganti function SystemDiagram dan tambah helper edgePoint
+// Replace dari "// ── SYSTEM DIAGRAM ────" sampai akhir SystemDiagram
 
 // ── SYSTEM DIAGRAM ────────────────────────────────────────────
 const NODE_W = 90;
 const NODE_H = 38;
 
 const ENTITIES = [
-  { id: "CLIENT",    label: ["CLIENT"],           x: 80,  y: 140, color: "#60a5fa" },
-  { id: "CONTRACT",  label: ["SMART", "CONTRACT"], x: 270, y: 60,  color: "#4ade80" },
-  { id: "ESCROW",    label: ["ESCROW"],            x: 270, y: 220, color: "#fbbf24" },
-  { id: "AGENT",     label: ["AGENT"],             x: 460, y: 140, color: "#e879f9" },
-  { id: "CHAINLINK", label: ["CHAINLINK"],         x: 460, y: 30,  color: "#375BD2" },
+  { id: "CLIENT",    label: ["CLIENT"],            x: 80,  y: 140, color: "#60a5fa" },
+  { id: "CONTRACT",  label: ["SMART", "CONTRACT"],  x: 270, y: 60,  color: "#4ade80" },
+  { id: "ESCROW",    label: ["ESCROW"],             x: 270, y: 220, color: "#fbbf24" },
+  { id: "AGENT",     label: ["AGENT"],              x: 460, y: 140, color: "#e879f9" },
+  { id: "CHAINLINK", label: ["CHAINLINK"],          x: 460, y: 30,  color: "#375BD2" },
 ];
 
 const CONNECTIONS = [
@@ -148,15 +147,38 @@ const CONNECTIONS = [
   { from: "ESCROW",    to: "CLIENT"    },
 ];
 
-// Center of each node
 function nodeCenter(entity: typeof ENTITIES[0]) {
   return { cx: entity.x + NODE_W / 2, cy: entity.y + NODE_H / 2 };
+}
+
+// Returns the point where a line from (cx,cy) toward (tx,ty) intersects the box edge
+function edgePoint(
+  cx: number, cy: number, // center of source node
+  tx: number, ty: number, // center of target node
+  w: number, h: number    // node size
+) {
+  const dx = tx - cx;
+  const dy = ty - cy;
+  const hw = w / 2;
+  const hh = h / 2;
+
+  // Find t for each edge intersection, take the smallest positive t
+  const candidates: number[] = [];
+  if (dx !== 0) {
+    candidates.push(hw / Math.abs(dx));   // left or right edge
+  }
+  if (dy !== 0) {
+    candidates.push(hh / Math.abs(dy));   // top or bottom edge
+  }
+
+  const t = Math.min(...candidates);
+  return { x: cx + dx * t, y: cy + dy * t };
 }
 
 function AnimatedDot({ x1, y1, x2, y2, color }: { x1: number; y1: number; x2: number; y2: number; color: string }) {
   return (
     <motion.circle
-      r="4"
+      r="3.5"
       fill={color}
       filter={`drop-shadow(0 0 4px ${color})`}
       initial={{ cx: x1, cy: y1, opacity: 0 }}
@@ -180,18 +202,25 @@ function SystemDiagram({ activeEntities, stepColor }: { activeEntities: string[]
         preserveAspectRatio="xMidYMid meet"
         style={{ display: "block", overflow: "visible" }}
       >
-        {/* ── LINES ── */}
+        {/* ── LINES — stop at box edges ── */}
         {CONNECTIONS.map((conn) => {
           const from = ENTITIES.find((e) => e.id === conn.from)!;
           const to   = ENTITIES.find((e) => e.id === conn.to)!;
           const isActive = hasActive && activeEntities.includes(conn.from) && activeEntities.includes(conn.to);
-          const { cx: x1, cy: y1 } = nodeCenter(from);
-          const { cx: x2, cy: y2 } = nodeCenter(to);
+
+          const { cx: fcx, cy: fcy } = nodeCenter(from);
+          const { cx: tcx, cy: tcy } = nodeCenter(to);
+
+          // Start point: edge of FROM node toward TO
+          const start = edgePoint(fcx, fcy, tcx, tcy, NODE_W, NODE_H);
+          // End point: edge of TO node toward FROM
+          const end   = edgePoint(tcx, tcy, fcx, fcy, NODE_W, NODE_H);
 
           return (
             <line
               key={`${conn.from}-${conn.to}`}
-              x1={x1} y1={y1} x2={x2} y2={y2}
+              x1={start.x} y1={start.y}
+              x2={end.x}   y2={end.y}
               stroke={isActive ? stepColor : "#1a1a1a"}
               strokeWidth={isActive ? 1.5 : 1}
               strokeDasharray={isActive ? "none" : "4 4"}
@@ -200,29 +229,35 @@ function SystemDiagram({ activeEntities, stepColor }: { activeEntities: string[]
           );
         })}
 
-        {/* ── ANIMATED DOTS on active connections ── */}
+        {/* ── ANIMATED DOTS ── */}
         {CONNECTIONS.map((conn) => {
           const from = ENTITIES.find((e) => e.id === conn.from)!;
           const to   = ENTITIES.find((e) => e.id === conn.to)!;
           const isActive = hasActive && activeEntities.includes(conn.from) && activeEntities.includes(conn.to);
           if (!isActive) return null;
-          const { cx: x1, cy: y1 } = nodeCenter(from);
-          const { cx: x2, cy: y2 } = nodeCenter(to);
-          return <AnimatedDot key={`dot-${conn.from}-${conn.to}`} x1={x1} y1={y1} x2={x2} y2={y2} color={stepColor} />;
+
+          const { cx: fcx, cy: fcy } = nodeCenter(from);
+          const { cx: tcx, cy: tcy } = nodeCenter(to);
+          const start = edgePoint(fcx, fcy, tcx, tcy, NODE_W, NODE_H);
+          const end   = edgePoint(tcx, tcy, fcx, fcy, NODE_W, NODE_H);
+
+          return (
+            <AnimatedDot
+              key={`dot-${conn.from}-${conn.to}`}
+              x1={start.x} y1={start.y}
+              x2={end.x}   y2={end.y}
+              color={stepColor}
+            />
+          );
         })}
 
-        {/* ── NODES — rendered in SVG so coords always match lines ── */}
+        {/* ── NODES ── */}
         {ENTITIES.map((entity) => {
           const isHighlighted = hasActive && activeEntities.includes(entity.id);
           const isDimmed      = hasActive && !activeEntities.includes(entity.id);
 
           return (
-            <g
-              key={entity.id}
-              style={{ transition: "opacity 0.35s" }}
-              opacity={isDimmed ? 0.15 : 1}
-            >
-              {/* Node box */}
+            <g key={entity.id} opacity={isDimmed ? 0.15 : 1} style={{ transition: "opacity 0.35s" }}>
               <rect
                 x={entity.x} y={entity.y}
                 width={NODE_W} height={NODE_H}
@@ -231,8 +266,6 @@ function SystemDiagram({ activeEntities, stepColor }: { activeEntities: string[]
                 strokeWidth={isHighlighted ? 1.5 : 1}
                 style={{ transition: "fill 0.35s, stroke 0.35s" }}
               />
-
-              {/* Glow rect overlay */}
               {isHighlighted && (
                 <rect
                   x={entity.x} y={entity.y}
@@ -244,8 +277,6 @@ function SystemDiagram({ activeEntities, stepColor }: { activeEntities: string[]
                   filter={`drop-shadow(0 0 6px ${stepColor})`}
                 />
               )}
-
-              {/* Label lines — centered in node */}
               {entity.label.map((line, i) => (
                 <text
                   key={i}
