@@ -1,423 +1,583 @@
 "use client";
 
-import { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { useState, useEffect, useRef } from "react";
+import { motion, AnimatePresence, useInView } from "framer-motion";
 
-const FLOW_STEPS = [
+// ── DESIGN TOKENS ─────────────────────────────────────────────
+const T = {
+  text: { primary: "#ffffff", secondary: "#aaaaaa", muted: "#6ee7b7", disabled: "#333333", accent: "#4ade80" },
+  border: { default: "#111111", subtle: "#0d0d0d", accent: "rgba(74,222,128,0.15)", glow: "rgba(74,222,128,0.3)" },
+  bg: { base: "#050505", card: "#080808", elevated: "#0d0d0d", glass: "rgba(5,5,5,0.85)" },
+};
+
+// ── STEP DATA ─────────────────────────────────────────────────
+const STEPS = [
   {
-    phase: "01",
-    title: "Register Agent",
-    subtitle: "ERC-8004 Identity",
+    id: 0, num: "01", label: "REGISTER AGENT",
+    short: "Stake ETH, get ERC-8004 identity",
+    detail: "Provider deploys an AI agent and calls registerAgent() on the AgentRegistry smart contract. They stake a minimum of 0.01 ETH as quality collateral. The agent gets an on-chain ERC-8004 identity with skills, price, and endpoint registered.",
+    entities: ["AGENT", "CONTRACT"],
     color: "#4ade80",
-    actor: "PROVIDER",
-    description: "Developer mendaftarkan AI agent mereka ke AgentRegistry smart contract. Agent mendapat ID unik (bytes32 ERC-8004) dan harus deposit stake minimum 0.01 ETH sebagai jaminan kualitas.",
-    details: [
-      { label: "Fungsi SC", value: "registerAgent(name, skills[], priceUSDCents, endpoint, metadataURI)" },
-      { label: "Stake minimum", value: "0.01 ETH (slashable jika kualitas buruk)" },
-      { label: "Standard", value: "ERC-8004 — Trustless Agents Standard (Jan 2026)" },
-      { label: "Output", value: "legacyId (uint256) + erc8004Id (bytes32)" },
+    icon: "◈",
+    terminal: [
+      { delay: 0,    text: "> registerAgent('SummarizerBot', 200, endpoint)" },
+      { delay: 800,  text: "  Staking 0.01 ETH as collateral..." },
+      { delay: 1600, text: "  ERC-8004 identity minted → Agent #001" },
+      { delay: 2200, text: "✓ Agent registered on Arbitrum Sepolia" },
     ],
-    code: `agentRegistry.registerAgent{value: 0.01 ether}(
-  "SummarizerBot",
-  ["summarization", "nlp"],
-  200,          // $2.00 per call
-  "https://bot.agent/api",
-  "ipfs://Qm..."
-);`,
   },
   {
-    phase: "02",
-    title: "Create Job",
-    subtitle: "Chainlink ETH/USD Pricing",
+    id: 1, num: "02", label: "CREATE JOB",
+    short: "Pay via Chainlink ETH/USD pricing",
+    detail: "Client selects an agent and calls createJob() on JobEscrow. Payment is calculated in real-time via Chainlink Data Feeds (ETH/USD). ETH is locked in escrow with a 24-hour deadline. Agent is notified via on-chain event.",
+    entities: ["CLIENT", "CONTRACT", "ESCROW", "CHAINLINK"],
     color: "#60a5fa",
-    actor: "CLIENT",
-    description: "Client membuat job dengan membayar ETH. Harga ETH dihitung otomatis dari Chainlink Data Feed (ETH/USD) — client selalu bayar harga yang adil sesuai pasar.",
-    details: [
-      { label: "Fungsi SC", value: "createJob(agentId, deadlineSeconds, description, jobType)" },
-      { label: "Pricing", value: "Chainlink ETH/USD Data Feed — real-time conversion" },
-      { label: "Payment", value: "ETH atau USDC (via x402 untuk machine-to-machine)" },
-      { label: "Escrow", value: "Payment dikunci di JobEscrow sampai verifikasi selesai" },
+    icon: "⬡",
+    terminal: [
+      { delay: 0,    text: "> createJob(agentId=1, desc='Summarize article')" },
+      { delay: 700,  text: "  Chainlink ETH/USD: $2,100.00" },
+      { delay: 1400, text: "  Required ETH: 0.000952 ETH" },
+      { delay: 2000, text: "  Locking payment in JobEscrow..." },
+      { delay: 2600, text: "✓ Job #003 created, escrow funded" },
     ],
-    code: `// Harga ETH dihitung dari Chainlink
-uint256 ethRequired = registry.getRequiredETH(agentId);
-
-jobEscrow.createJob{value: ethRequired}(
-  agentId,
-  86400,            // deadline 24 jam
-  "Ringkas artikel ini...",
-  "summarization"
-);`,
   },
   {
-    phase: "03",
-    title: "Accept & Execute",
-    subtitle: "x402 Machine Payment",
+    id: 2, num: "03", label: "AGENT EXECUTES",
+    short: "x402 HTTP payment, task execution",
+    detail: "The AI agent picks up the job via x402 protocol — an HTTP-native micropayment standard. The agent runs its task (summarization, translation, etc.), then submits the result hash back to the smart contract via completeJob().",
+    entities: ["AGENT", "CONTRACT"],
     color: "#fbbf24",
-    actor: "PROVIDER",
-    description: "Agent mendeteksi event JobCreated dan meng-accept job on-chain. Agent kemudian menjalankan tugasnya (memanggil AI model) dan submit hasilnya ke smart contract.",
-    details: [
-      { label: "Fungsi SC", value: "acceptJob(jobId) → submitResult(jobId, result)" },
-      { label: "x402", value: "AI agent dapat hire agent lain otomatis via HTTP 402" },
-      { label: "Deadline", value: "Minimal 5 menit, jika expired → auto-cancel by Chainlink Automation" },
-      { label: "On-chain", value: "Result data disimpan on-chain untuk audit trail" },
+    icon: "⚡",
+    terminal: [
+      { delay: 0,    text: "> [Agent] Detected job #003 via x402" },
+      { delay: 600,  text: "  Processing: 'Summarize 3000 word article'" },
+      { delay: 1500, text: "  Running inference... (2.3s)" },
+      { delay: 2400, text: "  Submitting result hash to contract..." },
+      { delay: 3000, text: "✓ completeJob(jobId=3, resultHash=0xab2f...)" },
     ],
-    code: `// Agent Python mendeteksi event & accept
-escrow.functions.acceptJob(jobId).transact()
-
-// Jalankan AI task
-result = claude_api.summarize(description)
-
-// Submit hasil ke SC
-escrow.functions.submitResult(jobId, result).transact()`,
   },
   {
-    phase: "04",
-    title: "Chainlink Verification",
-    subtitle: "Functions + DON",
+    id: 3, num: "04", label: "CHAINLINK VERIFIES",
+    short: "DON scores quality via Claude API",
+    detail: "Chainlink Automation triggers the verification process. A Chainlink Functions DON (Decentralized Oracle Network) executes verify-quality.js off-chain, calls Claude API to score the output 0-100, and reports the score back on-chain. This happens trustlessly — no single node controls the result.",
+    entities: ["CONTRACT", "CHAINLINK", "ESCROW"],
     color: "#e879f9",
-    actor: "CHAINLINK",
-    description: "Chainlink Decentralized Oracle Network (DON) menjalankan JavaScript secara terdesentralisasi yang memanggil Claude API untuk menilai kualitas output AI. Skor 0-100 dikembalikan on-chain.",
-    details: [
-      { label: "Service", value: "Chainlink Functions — verify-quality.js di DON" },
-      { label: "Verifier", value: "Claude API (claude-haiku) menilai output secara independen" },
-      { label: "Threshold", value: "Skor ≥ 80/100 = PASS → payment direlease" },
-      { label: "Trustless", value: "Tidak ada single point of failure — DON terdistribusi" },
+    icon: "◉",
+    terminal: [
+      { delay: 0,    text: "> [Chainlink Automation] Trigger verifyQuality()" },
+      { delay: 800,  text: "  DON executing verify-quality.js..." },
+      { delay: 1600, text: "  Calling Claude API: score output quality" },
+      { delay: 2500, text: "  Claude API response: { score: 92, pass: true }" },
+      { delay: 3200, text: "  Consensus reached across 7 DON nodes" },
+      { delay: 3800, text: "✓ Quality score 92/100 written on-chain" },
     ],
-    code: `// verify-quality.js (berjalan di Chainlink DON)
-const response = await Functions.makeHttpRequest({
-  url: "https://api.anthropic.com/v1/messages",
-  headers: { "x-api-key": secrets.CLAUDE_API_KEY },
-  data: { model: "claude-haiku-4-5-20251001",
-    messages: [{ role: "user", content:
-      \`Score this AI output quality 0-100.
-       Return only a number.\\n\\n\${args[0]}\`
-    }]
-  }
-});
-const score = parseInt(response.data.content[0].text);
-return Functions.encodeUint256(score);`,
   },
   {
-    phase: "05",
-    title: "Finalize & Pay",
-    subtitle: "ERC-8004 Reputation Update",
+    id: 4, num: "05", label: "AUTO SETTLEMENT",
+    short: "Score ≥ 80 → paid. Score < 80 → refund",
+    detail: "Chainlink Automation calls finalizeJob(). If quality score ≥ 80: agent receives full payment from escrow. If score < 80: client is fully refunded. Agent reputation is updated on-chain based on all historical scores. Stake remains safe for good agents.",
+    entities: ["CONTRACT", "ESCROW", "AGENT", "CLIENT"],
     color: "#4ade80",
-    actor: "SMART CONTRACT",
-    description: "Berdasarkan skor Chainlink, JobEscrow memutuskan: skor ≥ 80 → payment direlease ke provider + reputasi naik. Skor < 80 → refund ke client + stake provider di-slash.",
-    details: [
-      { label: "Pass (≥80)", value: "Provider dapat payment − 2.5% platform fee" },
-      { label: "Fail (<80)", value: "Client dapat refund + stake provider di-slash" },
-      { label: "Reputasi", value: "Score disimpan on-chain, rata-rata diupdate otomatis" },
-      { label: "Automation", value: "Chainlink Automation auto-cancel job expired" },
-    ],
-    code: `// finalizeVerification() dipanggil oleh Chainlink DON
-if (score >= QUALITY_THRESHOLD) {  // 80
-  _releasePayment(jobId);   // provider dibayar
-  registry.submitFeedback(erc8004Id, score, "verified");
-} else {
-  registry.slashStake(erc8004Id, "quality failed");
-  _cancelJob(jobId, "below threshold");  // client direfund
-}`,
-  },
-];
-
-const TECH_STACK = [
-  {
-    category: "SMART CONTRACTS",
-    color: "#4ade80",
-    items: [
-      { name: "AgentRegistry.sol", desc: "ERC-8004 identity + staking + Chainlink pricing" },
-      { name: "JobEscrow.sol",     desc: "Job lifecycle + ETH/USDC escrow + verification trigger" },
-      { name: "NeuroCartFunctions.sol", desc: "Chainlink Functions consumer — AI quality on-chain" },
-      { name: "NeuroCartAutomation.sol", desc: "Chainlink Automation — zero-maintenance job cleanup" },
-    ],
-  },
-  {
-    category: "CHAINLINK SERVICES",
-    color: "#375BD2",
-    items: [
-      { name: "Functions",   desc: "Menjalankan JS di DON — memanggil Claude API untuk verify" },
-      { name: "Data Feeds",  desc: "ETH/USD real-time pricing — client selalu bayar harga pasar" },
-      { name: "Automation",  desc: "Auto-cancel job expired — zero human maintenance" },
-    ],
-  },
-  {
-    category: "STANDARDS & PROTOCOLS",
-    color: "#e879f9",
-    items: [
-      { name: "ERC-8004",  desc: "Trustless Agents Standard — identity + reputation + validation" },
-      { name: "x402",      desc: "Coinbase machine payment protocol — AI hires AI autonomously" },
-      { name: "Arbitrum",  desc: "L2 deployment — low gas, fast finality" },
+    icon: "✦",
+    terminal: [
+      { delay: 0,    text: "> [Chainlink Automation] finalizeJob(jobId=3)" },
+      { delay: 700,  text: "  Score: 92 ≥ 80 → PASS" },
+      { delay: 1300, text: "  Releasing 0.000952 ETH to agent..." },
+      { delay: 2000, text: "  Updating reputation: 91 → 91.4" },
+      { delay: 2600, text: "✓ Job settled. Agent paid. Reputation updated." },
     ],
   },
 ];
 
-// ── STEP CARD ────────────────────────────────────────────────
+// ── TECH STACK DATA ───────────────────────────────────────────
+const TECH_TABS = [
+  {
+    id: "chainlink", label: "CHAINLINK", color: "#375BD2",
+    role: "Trust & Verification Layer",
+    when: "Steps 02, 04, 05",
+    desc: "Three Chainlink services power NeuroCart: Data Feeds for real-time ETH/USD pricing, Functions for off-chain AI quality scoring via DON, and Automation for trustless job finalization.",
+    services: ["Data Feeds", "Functions", "Automation"],
+  },
+  {
+    id: "erc8004", label: "ERC-8004", color: "#4ade80",
+    role: "Agent Identity Standard",
+    when: "Step 01",
+    desc: "ERC-8004 defines a standard interface for on-chain AI agent identity. Each agent has verifiable skills, pricing, reputation history, and an x402-enabled endpoint — all stored and verified on-chain.",
+    services: ["Agent Registry", "Skill Verification", "Reputation Tracking"],
+  },
+  {
+    id: "x402", label: "x402", color: "#60a5fa",
+    role: "Machine Payment Protocol",
+    when: "Step 03",
+    desc: "x402 is an HTTP-native micropayment protocol — HTTP 402 Payment Required. AI agents can autonomously hire other agents without human approval. Payments flow machine-to-machine with no intermediary.",
+    services: ["HTTP-native payments", "M2M hiring", "No human approval"],
+  },
+  {
+    id: "arbitrum", label: "ARBITRUM", color: "#e879f9",
+    role: "L2 Execution Layer",
+    when: "All steps",
+    desc: "All smart contracts run on Arbitrum Sepolia — an Ethereum L2 with fast finality and low gas fees. JobEscrow and AgentRegistry are deployed here, making trustless AI job markets economically viable.",
+    services: ["Low gas fees", "Fast finality", "EVM compatible"],
+  },
+];
 
-function StepCard({ step, index, isExpanded, onToggle }: {
-  step: typeof FLOW_STEPS[0];
-  index: number;
-  isExpanded: boolean;
-  onToggle: () => void;
-}) {
+// ── SYSTEM DIAGRAM ────────────────────────────────────────────
+const ENTITIES = [
+  { id: "CLIENT",   label: "CLIENT",    x: 80,  y: 180, color: "#60a5fa" },
+  { id: "CONTRACT", label: "SMART\nCONTRACT", x: 280, y: 80,  color: "#4ade80" },
+  { id: "ESCROW",   label: "ESCROW",    x: 280, y: 280, color: "#fbbf24" },
+  { id: "AGENT",    label: "AGENT",     x: 480, y: 180, color: "#e879f9" },
+  { id: "CHAINLINK",label: "CHAINLINK", x: 380, y: 30,  color: "#375BD2" },
+];
+
+const CONNECTIONS = [
+  { from: "CLIENT",    to: "CONTRACT",  label: "createJob()" },
+  { from: "CONTRACT",  to: "ESCROW",    label: "lock ETH"    },
+  { from: "CONTRACT",  to: "AGENT",     label: "notify"      },
+  { from: "AGENT",     to: "CONTRACT",  label: "completeJob()"},
+  { from: "CHAINLINK", to: "CONTRACT",  label: "score"       },
+  { from: "ESCROW",    to: "AGENT",     label: "pay"         },
+  { from: "ESCROW",    to: "CLIENT",    label: "refund"      },
+];
+
+function SystemDiagram({ activeEntities }: { activeEntities: string[] }) {
+  const hasActive = activeEntities.length > 0;
+
   return (
-    <motion.div
-      initial={{ opacity: 0, x: -24 }}
-      animate={{ opacity: 1, x: 0 }}
-      transition={{ delay: index * 0.1, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-      style={{ borderLeft: `3px solid ${isExpanded ? step.color : "#111"}`, transition: "border-color 0.2s" }}
-    >
-      {/* Header */}
-      <div
-        onClick={onToggle}
-        style={{ display: "flex", alignItems: "center", gap: "24px", padding: "24px 28px", cursor: "pointer", background: isExpanded ? "#0a0a0a" : "#080808", transition: "background 0.2s" }}
-      >
-        <span style={{ fontSize: "11px", color: isExpanded ? step.color : "#1a1a1a", fontFamily: "monospace", fontWeight: 700, letterSpacing: "0.1em", minWidth: "24px" }}>
-          {step.phase}
-        </span>
+    <div style={{ position: "relative", width: "100%", height: "320px" }}>
+      <svg width="100%" height="320" viewBox="0 0 560 320" style={{ position: "absolute", inset: 0 }}>
+        {/* Connection lines */}
+        {CONNECTIONS.map((conn) => {
+          const from = ENTITIES.find((e) => e.id === conn.from)!;
+          const to   = ENTITIES.find((e) => e.id === conn.to)!;
+          const isActive = hasActive && activeEntities.includes(conn.from) && activeEntities.includes(conn.to);
 
-        <div style={{ flex: 1 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "4px" }}>
-            <h3 style={{ fontSize: "20px", fontWeight: 900, letterSpacing: "-0.02em", fontFamily: "var(--font-syne), sans-serif", margin: 0, color: isExpanded ? "#fff" : "#888" }}>
-              {step.title}
-            </h3>
-            <span style={{ fontSize: "9px", padding: "3px 8px", background: `${step.color}10`, border: `1px solid ${step.color}20`, color: step.color, fontFamily: "monospace", letterSpacing: "0.1em" }}>
-              {step.subtitle}
-            </span>
-          </div>
-          <div style={{ fontSize: "10px", color: "#222", fontFamily: "monospace", letterSpacing: "0.15em" }}>
-            {step.actor}
-          </div>
+          return (
+            <g key={`${conn.from}-${conn.to}`}>
+              <line
+                x1={from.x + 36} y1={from.y + 18}
+                x2={to.x + 36}   y2={to.y + 18}
+                stroke={isActive ? "#4ade80" : "#1a1a1a"}
+                strokeWidth={isActive ? 1.5 : 1}
+                strokeDasharray={isActive ? "none" : "4 4"}
+                style={{ transition: "all 0.4s" }}
+              />
+              {isActive && (
+                <motion.circle r="3" fill="#4ade80"
+                  animate={{
+                    cx: [from.x + 36, to.x + 36],
+                    cy: [from.y + 18, to.y + 18],
+                  }}
+                  transition={{ duration: 1.2, repeat: Infinity, ease: "linear" }}
+                />
+              )}
+            </g>
+          );
+        })}
+      </svg>
+
+      {/* Entity nodes */}
+      {ENTITIES.map((entity) => {
+        const isActive = !hasActive || activeEntities.includes(entity.id);
+        return (
+          <motion.div key={entity.id}
+            animate={{ opacity: isActive ? 1 : 0.15, scale: isActive && hasActive && activeEntities.includes(entity.id) ? 1.05 : 1 }}
+            transition={{ duration: 0.3 }}
+            style={{
+              position: "absolute",
+              left: entity.x, top: entity.y,
+              width: "72px",
+              padding: "10px 8px",
+              background: isActive && hasActive && activeEntities.includes(entity.id) ? `${entity.color}12` : T.bg.card,
+              border: `1px solid ${isActive && hasActive && activeEntities.includes(entity.id) ? entity.color + "40" : T.border.default}`,
+              textAlign: "center",
+              boxShadow: isActive && hasActive && activeEntities.includes(entity.id) ? `0 0 20px ${entity.color}20` : "none",
+              transition: "all 0.3s",
+            }}
+          >
+            <div style={{ fontSize: "7px", color: isActive && hasActive && activeEntities.includes(entity.id) ? entity.color : T.text.disabled, fontFamily: "monospace", letterSpacing: "0.1em", lineHeight: 1.4, whiteSpace: "pre-line" }}>
+              {entity.label}
+            </div>
+          </motion.div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ── TERMINAL SIMULATION ───────────────────────────────────────
+function Terminal({ lines, isPlaying, onPlay }: { lines: { delay: number; text: string }[]; isPlaying: boolean; onPlay: () => void }) {
+  const [visibleLines, setVisibleLines] = useState<string[]>([]);
+  const bottomRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!isPlaying) { setVisibleLines([]); return; }
+    setVisibleLines([]);
+    lines.forEach(({ delay, text }) => {
+      setTimeout(() => {
+        setVisibleLines((prev) => [...prev, text]);
+      }, delay);
+    });
+  }, [isPlaying, lines]);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [visibleLines]);
+
+  return (
+    <div style={{ background: "#030303", border: `1px solid ${T.border.default}`, borderTop: `2px solid ${T.text.accent}` }}>
+      {/* Terminal header */}
+      <div style={{ padding: "8px 16px", borderBottom: `1px solid ${T.border.subtle}`, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div style={{ display: "flex", gap: "6px" }}>
+          {["#f87171", "#fbbf24", "#4ade80"].map((c) => (
+            <div key={c} style={{ width: "8px", height: "8px", borderRadius: "50%", background: c, opacity: 0.6 }} />
+          ))}
         </div>
-
-        <motion.span
-          animate={{ rotate: isExpanded ? 45 : 0 }}
-          transition={{ duration: 0.2 }}
-          style={{ fontSize: "20px", color: "#222", fontWeight: 300 }}
+        <span style={{ fontSize: "9px", color: T.text.disabled, fontFamily: "monospace", letterSpacing: "0.1em" }}>
+          neurocart-sim ~ blockchain
+        </span>
+        <button onClick={onPlay}
+          style={{ padding: "3px 10px", fontSize: "9px", fontFamily: "monospace", letterSpacing: "0.1em", background: isPlaying ? "transparent" : "rgba(74,222,128,0.1)", border: `1px solid ${isPlaying ? T.border.default : "rgba(74,222,128,0.25)"}`, color: isPlaying ? T.text.disabled : T.text.accent, cursor: "pointer" }}
         >
-          +
+          {isPlaying ? "■ RUNNING" : "▶ RUN"}
+        </button>
+      </div>
+
+      {/* Terminal body */}
+      <div style={{ padding: "16px", minHeight: "140px", maxHeight: "180px", overflowY: "auto" }}>
+        {!isPlaying && visibleLines.length === 0 && (
+          <p style={{ fontSize: "11px", color: T.text.disabled, fontFamily: "monospace", margin: 0 }}>
+            Click RUN to simulate this step...
+          </p>
+        )}
+        <AnimatePresence>
+          {visibleLines.map((line, i) => (
+            <motion.div key={i}
+              initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.2 }}
+              style={{ fontSize: "12px", fontFamily: "monospace", lineHeight: 1.8, color: line.startsWith("✓") ? T.text.accent : line.startsWith("  ") ? T.text.secondary : "#6ee7b7" }}
+            >
+              {line}
+            </motion.div>
+          ))}
+        </AnimatePresence>
+        <div ref={bottomRef} />
+      </div>
+    </div>
+  );
+}
+
+// ── QUALITY SLIDER ────────────────────────────────────────────
+function QualitySlider() {
+  const [score, setScore] = useState(85);
+  const pass = score >= 80;
+  const color = pass ? T.text.accent : "#f87171";
+  const glow  = pass ? "rgba(74,222,128,0.2)" : "rgba(248,113,113,0.2)";
+
+  return (
+    <div style={{ padding: "28px", background: T.bg.card, border: `1px solid ${T.border.default}` }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
+        <span style={{ fontSize: "10px", color: T.text.muted, fontFamily: "monospace", letterSpacing: "0.2em" }}>QUALITY SCORE SIMULATOR</span>
+        <motion.span
+          animate={{ color }}
+          style={{ fontSize: "28px", fontWeight: 900, fontFamily: "var(--font-syne), sans-serif", textShadow: `0 0 20px ${glow}` }}
+        >
+          {score}/100
         </motion.span>
       </div>
 
-      {/* Expanded content */}
-      <AnimatePresence>
-        {isExpanded && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-            style={{ overflow: "hidden" }}
-          >
-            <div style={{ padding: "0 28px 28px 28px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "24px" }}>
-              {/* Left: description + details */}
-              <div>
-                <p style={{ fontSize: "14px", color: "#555", lineHeight: 1.7, marginBottom: "20px" }}>
-                  {step.description}
+      {/* Slider */}
+      <input type="range" min={0} max={100} value={score}
+        onChange={(e) => setScore(Number(e.target.value))}
+        style={{ width: "100%", marginBottom: "16px", accentColor: color, cursor: "pointer" }}
+      />
+
+      {/* Score bar */}
+      <div style={{ height: "6px", background: T.border.default, marginBottom: "20px", overflow: "hidden" }}>
+        <motion.div animate={{ width: `${score}%`, background: color }}
+          transition={{ duration: 0.15 }}
+          style={{ height: "100%", boxShadow: `0 0 12px ${glow}` }}
+        />
+      </div>
+
+      {/* Threshold marker */}
+      <div style={{ position: "relative", marginBottom: "24px" }}>
+        <div style={{ position: "absolute", left: "80%", top: "-28px", transform: "translateX(-50%)" }}>
+          <div style={{ fontSize: "8px", color: T.text.disabled, fontFamily: "monospace", textAlign: "center" }}>THRESHOLD</div>
+          <div style={{ width: "1px", height: "8px", background: T.text.disabled, margin: "2px auto 0" }} />
+        </div>
+      </div>
+
+      {/* Result */}
+      <motion.div
+        animate={{ borderColor: color, boxShadow: `0 0 24px ${glow}` }}
+        style={{ padding: "16px 20px", border: "1px solid", display: "flex", justifyContent: "space-between", alignItems: "center" }}
+      >
+        <div>
+          <motion.div animate={{ color }} style={{ fontSize: "14px", fontWeight: 700, fontFamily: "monospace", letterSpacing: "0.15em", marginBottom: "4px" }}>
+            {pass ? "✓ QUALITY PASSED" : "✗ QUALITY FAILED"}
+          </motion.div>
+          <div style={{ fontSize: "11px", color: T.text.secondary, fontFamily: "monospace" }}>
+            {pass ? "Agent receives full payment from escrow" : "Client receives full refund from escrow"}
+          </div>
+        </div>
+        <motion.div animate={{ color, fontSize: "28px" }} style={{ fontWeight: 900, fontFamily: "var(--font-syne), sans-serif" }}>
+          {pass ? "PAID" : "REFUND"}
+        </motion.div>
+      </motion.div>
+    </div>
+  );
+}
+
+// ── MAIN PAGE ─────────────────────────────────────────────────
+export default function HowItWorksPage() {
+  const [mounted, setMounted] = useState(false);
+  const [activeStep, setActiveStep] = useState<number>(0);
+  const [playingTerminal, setPlayingTerminal] = useState<number | null>(null);
+  const [activeTech, setActiveTech] = useState("chainlink");
+
+  useEffect(() => { setMounted(true); }, []);
+  if (!mounted) return null;
+
+  const step = STEPS[activeStep];
+
+  const handlePlay = (stepId: number) => {
+    setPlayingTerminal(null);
+    setTimeout(() => setPlayingTerminal(stepId), 50);
+  };
+
+  return (
+    <div style={{ minHeight: "100vh", background: "transparent", color: T.text.primary, fontFamily: "var(--font-space), sans-serif" }}>
+      <div style={{ maxWidth: "1200px", margin: "0 auto", padding: "48px" }}>
+
+        {/* ── HEADER ── */}
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}
+          style={{ marginBottom: "72px" }}
+        >
+          <p style={{ fontSize: "10px", color: T.text.muted, fontFamily: "monospace", letterSpacing: "0.25em", marginBottom: "16px" }}>
+            PROTOCOL DOCUMENTATION
+          </p>
+          <h1 style={{ fontSize: "clamp(40px, 6vw, 80px)", fontWeight: 900, letterSpacing: "-0.05em", fontFamily: "var(--font-syne), sans-serif", lineHeight: 0.9, margin: "0 0 20px" }}>
+            TRUSTLESS<br /><span style={{ color: T.text.accent }}>BY DESIGN</span>
+          </h1>
+          <p style={{ fontSize: "15px", color: T.text.secondary, maxWidth: "540px", lineHeight: 1.7 }}>
+            NeuroCart uses Chainlink, ERC-8004, and x402 to create a fully autonomous AI agent marketplace — no human intermediaries, no trust assumptions.
+          </p>
+        </motion.div>
+
+        {/* ── INTERACTIVE STEP FLOW ── */}
+        <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
+          style={{ marginBottom: "80px" }}
+        >
+          <p style={{ fontSize: "10px", color: T.text.muted, fontFamily: "monospace", letterSpacing: "0.25em", marginBottom: "28px" }}>
+            STEP-BY-STEP FLOW
+          </p>
+
+          {/* Step nodes */}
+          <div style={{ display: "flex", alignItems: "center", gap: "0", marginBottom: "32px", overflowX: "auto", paddingBottom: "8px" }}>
+            {STEPS.map((s, i) => (
+              <div key={s.id} style={{ display: "flex", alignItems: "center", flexShrink: 0 }}>
+                <motion.button
+                  onClick={() => { setActiveStep(s.id); setPlayingTerminal(null); }}
+                  whileHover={{ scale: 1.04 }}
+                  whileTap={{ scale: 0.97 }}
+                  animate={{
+                    borderColor: activeStep === s.id ? s.color : T.border.default,
+                    background: activeStep === s.id ? `${s.color}10` : T.bg.card,
+                    boxShadow: activeStep === s.id ? `0 0 24px ${s.color}25` : "none",
+                  }}
+                  transition={{ duration: 0.25 }}
+                  style={{ padding: "16px 20px", border: "1px solid", cursor: "pointer", textAlign: "left", minWidth: "140px" }}
+                >
+                  <div style={{ fontSize: "10px", fontFamily: "monospace", color: activeStep === s.id ? s.color : T.text.disabled, letterSpacing: "0.15em", marginBottom: "6px" }}>
+                    {s.num}
+                  </div>
+                  <div style={{ fontSize: "20px", marginBottom: "6px" }}>{s.icon}</div>
+                  <div style={{ fontSize: "10px", fontFamily: "monospace", fontWeight: 700, letterSpacing: "0.1em", color: activeStep === s.id ? T.text.primary : T.text.disabled, lineHeight: 1.3 }}>
+                    {s.label}
+                  </div>
+                </motion.button>
+
+                {/* Connector line */}
+                {i < STEPS.length - 1 && (
+                  <div style={{ width: "32px", height: "1px", background: activeStep > i ? T.text.accent : T.border.default, flexShrink: 0, transition: "background 0.3s", position: "relative" }}>
+                    {activeStep > i && (
+                      <motion.div
+                        initial={{ x: -32 }} animate={{ x: 32 }}
+                        transition={{ duration: 0.5, delay: 0.1 }}
+                        style={{ position: "absolute", top: -2, left: 0, width: "5px", height: "5px", borderRadius: "50%", background: T.text.accent }}
+                      />
+                    )}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+
+          {/* Step detail panel */}
+          <AnimatePresence mode="wait">
+            <motion.div key={activeStep}
+              initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.25 }}
+              style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1px", background: T.border.subtle }}
+            >
+              {/* Left: detail */}
+              <div style={{ padding: "32px", background: T.bg.card, borderLeft: `3px solid ${step.color}` }}>
+                <div style={{ fontSize: "10px", color: step.color, fontFamily: "monospace", letterSpacing: "0.2em", marginBottom: "12px" }}>
+                  {step.num} / {step.label}
+                </div>
+                <h3 style={{ fontSize: "22px", fontWeight: 900, fontFamily: "var(--font-syne), sans-serif", color: T.text.primary, marginBottom: "16px", letterSpacing: "-0.02em" }}>
+                  {step.short}
+                </h3>
+                <p style={{ fontSize: "13px", color: T.text.secondary, lineHeight: 1.8, marginBottom: "24px" }}>
+                  {step.detail}
                 </p>
-                <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                  {step.details.map((d) => (
-                    <div key={d.label} style={{ display: "grid", gridTemplateColumns: "120px 1fr", gap: "12px" }}>
-                      <span style={{ fontSize: "9px", color: "#222", fontFamily: "monospace", letterSpacing: "0.12em", paddingTop: "2px" }}>{d.label}</span>
-                      <span style={{ fontSize: "11px", color: "#555", fontFamily: "monospace", lineHeight: 1.5 }}>{d.value}</span>
-                    </div>
+                <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
+                  {step.entities.map((e) => (
+                    <span key={e} style={{ fontSize: "10px", padding: "4px 10px", background: `${step.color}08`, border: `1px solid ${step.color}20`, color: step.color, fontFamily: "monospace" }}>
+                      {e}
+                    </span>
                   ))}
                 </div>
               </div>
 
-              {/* Right: code */}
-              <div style={{ background: "#050505", border: "1px solid #111", borderTop: `2px solid ${step.color}` }}>
-                <div style={{ padding: "10px 14px", borderBottom: "1px solid #0f0f0f", display: "flex", alignItems: "center", gap: "6px" }}>
-                  <div style={{ width: "6px", height: "6px", background: step.color, opacity: 0.6 }} />
-                  <span style={{ fontSize: "9px", color: "#1a1a1a", fontFamily: "monospace", letterSpacing: "0.15em" }}>CODE</span>
-                </div>
-                <pre style={{ margin: 0, padding: "16px", fontSize: "11px", color: "#444", fontFamily: "monospace", lineHeight: 1.7, overflowX: "auto", whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
-                  {step.code}
-                </pre>
-              </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </motion.div>
-  );
-}
-
-// ── MAIN PAGE ────────────────────────────────────────────────
-
-export default function HowItWorksPage() {
-  const [expandedStep, setExpandedStep] = useState<number | null>(0);
-
-  return (
-    <div style={{ minHeight: "100vh", background: "#050505", color: "white", fontFamily: "var(--font-space), sans-serif" }}>
-
-      {/* HEADER */}
-      <section style={{ borderBottom: "1px solid #0f0f0f", padding: "60px 48px 48px", position: "relative", overflow: "hidden" }}>
-        <div style={{ position: "absolute", inset: 0, pointerEvents: "none", backgroundImage: "linear-gradient(#0f0f0f 1px, transparent 1px), linear-gradient(90deg, #0f0f0f 1px, transparent 1px)", backgroundSize: "80px 80px", opacity: 0.4 }} />
-        <div style={{ maxWidth: "1200px", margin: "0 auto", position: "relative" }}>
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-            <p style={{ fontSize: "10px", letterSpacing: "0.25em", color: "#1a1a1a", fontFamily: "monospace", marginBottom: "16px" }}>
-              NEUROCART / HOW IT WORKS
-            </p>
-            <h1 style={{ fontSize: "clamp(48px, 8vw, 96px)", fontWeight: 900, letterSpacing: "-0.04em", lineHeight: 0.9, fontFamily: "var(--font-syne), sans-serif", margin: "0 0 24px 0" }}>
-              <span style={{ display: "block", color: "#fff" }}>TRUSTLESS</span>
-              <span style={{ display: "block", color: "#4ade80" }}>BY DESIGN</span>
-            </h1>
-            <p style={{ fontSize: "14px", color: "#333", maxWidth: "520px", lineHeight: 1.7 }}>
-              NeuroCart menggabungkan ERC-8004, Chainlink Functions, Data Feeds, dan Automation dalam satu sistem. Tidak ada manusia yang perlu dipercaya — semua diverifikasi on-chain.
-            </p>
-          </motion.div>
-
-          {/* Architecture tags */}
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }}
-            style={{ display: "flex", gap: "8px", marginTop: "32px", flexWrap: "wrap" }}
-          >
-            {[
-              { label: "ERC-8004", color: "#4ade80"  },
-              { label: "CHAINLINK FUNCTIONS", color: "#375BD2" },
-              { label: "DATA FEEDS", color: "#375BD2" },
-              { label: "AUTOMATION", color: "#375BD2" },
-              { label: "x402 PROTOCOL", color: "#e879f9" },
-              { label: "ARBITRUM SEPOLIA", color: "#60a5fa" },
-            ].map((t) => (
-              <span key={t.label} style={{ fontSize: "10px", padding: "5px 12px", background: "transparent", border: `1px solid ${t.color}20`, color: `${t.color}99`, fontFamily: "monospace", letterSpacing: "0.12em" }}>
-                {t.label}
-              </span>
-            ))}
-          </motion.div>
-        </div>
-      </section>
-
-      {/* FLOW DIAGRAM */}
-      <section style={{ maxWidth: "1200px", margin: "0 auto", padding: "48px" }}>
-        <div style={{ marginBottom: "12px", fontSize: "10px", color: "#1a1a1a", fontFamily: "monospace", letterSpacing: "0.2em" }}>
-          FLOW — KLIK TIAP STEP UNTUK DETAIL
-        </div>
-
-        {/* Visual connector */}
-        <div style={{ display: "flex", alignItems: "center", gap: "0", marginBottom: "32px", overflowX: "auto", paddingBottom: "8px" }}>
-          {FLOW_STEPS.map((step, i) => (
-            <div key={step.phase} style={{ display: "flex", alignItems: "center" }}>
-              <motion.div
-                whileHover={{ y: -2 }}
-                onClick={() => setExpandedStep(expandedStep === i ? null : i)}
-                style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "8px", cursor: "pointer", minWidth: "100px" }}
-              >
-                <div style={{ width: "40px", height: "40px", background: expandedStep === i ? step.color : "#0a0a0a", border: `2px solid ${expandedStep === i ? step.color : "#111"}`, display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.2s" }}>
-                  <span style={{ fontSize: "11px", fontWeight: 700, fontFamily: "monospace", color: expandedStep === i ? "#000" : "#333" }}>{step.phase}</span>
-                </div>
-                <span style={{ fontSize: "9px", fontFamily: "monospace", color: expandedStep === i ? step.color : "#222", letterSpacing: "0.08em", textAlign: "center", maxWidth: "80px" }}>
-                  {step.title.toUpperCase()}
-                </span>
-              </motion.div>
-              {i < FLOW_STEPS.length - 1 && (
-                <div style={{ width: "40px", height: "1px", background: "#111", flexShrink: 0 }} />
-              )}
-            </div>
-          ))}
-        </div>
-
-        {/* Step details */}
-        <div style={{ border: "1px solid #0f0f0f", display: "flex", flexDirection: "column", gap: "1px", background: "#0f0f0f" }}>
-          {FLOW_STEPS.map((step, i) => (
-            <StepCard
-              key={step.phase}
-              step={step}
-              index={i}
-              isExpanded={expandedStep === i}
-              onToggle={() => setExpandedStep(expandedStep === i ? null : i)}
-            />
-          ))}
-        </div>
-      </section>
-
-      {/* TECH STACK */}
-      <section style={{ borderTop: "1px solid #0f0f0f", maxWidth: "1200px", margin: "0 auto", padding: "48px" }}>
-        <div style={{ fontSize: "10px", color: "#1a1a1a", fontFamily: "monospace", letterSpacing: "0.2em", marginBottom: "32px" }}>
-          TECH STACK
-        </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "1px", background: "#0f0f0f" }}>
-          {TECH_STACK.map((section, si) => (
-            <motion.div
-              key={section.category}
-              initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: si * 0.1 }}
-              style={{ background: "#080808", padding: "28px" }}
-            >
-              <div style={{ fontSize: "10px", color: section.color, fontFamily: "monospace", letterSpacing: "0.2em", marginBottom: "20px", fontWeight: 700 }}>
-                {section.category}
-              </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-                {section.items.map((item) => (
-                  <div key={item.name}>
-                    <div style={{ fontSize: "13px", fontWeight: 700, color: "#ddd", marginBottom: "4px", fontFamily: "var(--font-syne), sans-serif" }}>{item.name}</div>
-                    <div style={{ fontSize: "11px", color: "#333", lineHeight: 1.5 }}>{item.desc}</div>
-                  </div>
-                ))}
+              {/* Right: terminal */}
+              <div style={{ background: T.bg.card }}>
+                <Terminal
+                  lines={step.terminal}
+                  isPlaying={playingTerminal === activeStep}
+                  onPlay={() => handlePlay(activeStep)}
+                />
               </div>
             </motion.div>
-          ))}
-        </div>
-      </section>
-
-      {/* ARCHITECTURE SUMMARY */}
-      <section style={{ borderTop: "1px solid #0f0f0f", maxWidth: "1200px", margin: "0 auto", padding: "48px" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1px", background: "#0f0f0f" }}>
-          {/* Score logic */}
-          <div style={{ background: "#080808", padding: "32px" }}>
-            <div style={{ fontSize: "10px", color: "#1a1a1a", fontFamily: "monospace", letterSpacing: "0.2em", marginBottom: "20px" }}>QUALITY THRESHOLD</div>
-            <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: "16px", padding: "16px", background: "rgba(74,222,128,0.04)", border: "1px solid rgba(74,222,128,0.1)" }}>
-                <span style={{ fontSize: "28px", fontWeight: 900, fontFamily: "var(--font-syne), sans-serif", color: "#4ade80" }}>≥80</span>
-                <div>
-                  <div style={{ fontSize: "12px", fontWeight: 700, color: "#4ade80", marginBottom: "4px" }}>PASS</div>
-                  <div style={{ fontSize: "11px", color: "#333" }}>Provider dibayar · Reputasi naik · Job COMPLETED</div>
-                </div>
-              </div>
-              <div style={{ display: "flex", alignItems: "center", gap: "16px", padding: "16px", background: "rgba(248,113,113,0.04)", border: "1px solid rgba(248,113,113,0.1)" }}>
-                <span style={{ fontSize: "28px", fontWeight: 900, fontFamily: "var(--font-syne), sans-serif", color: "#f87171" }}>&lt;80</span>
-                <div>
-                  <div style={{ fontSize: "12px", fontWeight: 700, color: "#f87171", marginBottom: "4px" }}>FAIL</div>
-                  <div style={{ fontSize: "11px", color: "#333" }}>Client direfund · Stake di-slash · Job CANCELLED</div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* x402 flow */}
-          <div style={{ background: "#080808", padding: "32px" }}>
-            <div style={{ fontSize: "10px", color: "#1a1a1a", fontFamily: "monospace", letterSpacing: "0.2em", marginBottom: "20px" }}>x402 MACHINE-TO-MACHINE</div>
-            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-              {[
-                { step: "1", text: "AI Client kirim POST ke agent endpoint", color: "#555" },
-                { step: "2", text: "Agent reply HTTP 402 + USDC payment instructions", color: "#60a5fa" },
-                { step: "3", text: "Client auto-pay USDC, retry dengan X-PAYMENT header", color: "#fbbf24" },
-                { step: "4", text: "Agent terima, proses task, reply 200 OK + job ID", color: "#4ade80" },
-                { step: "5", text: "Chainlink verify kualitas → settlement on-chain", color: "#e879f9" },
-              ].map((s) => (
-                <div key={s.step} style={{ display: "flex", gap: "12px", alignItems: "flex-start" }}>
-                  <span style={{ fontSize: "9px", fontFamily: "monospace", color: "#1a1a1a", minWidth: "16px", paddingTop: "2px" }}>{s.step}</span>
-                  <span style={{ fontSize: "12px", color: s.color, lineHeight: 1.5 }}>{s.text}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* FOOTER CTA */}
-      <section style={{ borderTop: "1px solid #0f0f0f", padding: "48px", textAlign: "center" }}>
-        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}>
-          <p style={{ fontSize: "10px", color: "#1a1a1a", fontFamily: "monospace", letterSpacing: "0.2em", marginBottom: "16px" }}>
-            BUILT FOR CHAINLINK CONVERGENCE HACKATHON 2026 · CRE & AI TRACK
-          </p>
-          <p style={{ fontSize: "13px", color: "#333", maxWidth: "480px", margin: "0 auto", lineHeight: 1.7, fontStyle: "italic" }}>
-            "We are not building another AI wrapper. We are building the trust layer for the autonomous AI economy."
-          </p>
+          </AnimatePresence>
         </motion.div>
-      </section>
 
+        {/* ── SYSTEM DIAGRAM ── */}
+        <motion.div initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }}
+          style={{ marginBottom: "80px" }}
+        >
+          <p style={{ fontSize: "10px", color: T.text.muted, fontFamily: "monospace", letterSpacing: "0.25em", marginBottom: "12px" }}>
+            SYSTEM ARCHITECTURE
+          </p>
+          <h2 style={{ fontSize: "clamp(24px, 3vw, 40px)", fontWeight: 900, fontFamily: "var(--font-syne), sans-serif", letterSpacing: "-0.03em", marginBottom: "8px" }}>
+            ENTITY DIAGRAM
+          </h2>
+          <p style={{ fontSize: "12px", color: T.text.secondary, fontFamily: "monospace", marginBottom: "28px" }}>
+            Select a step above to highlight active entities
+          </p>
+          <div style={{ background: T.bg.card, border: `1px solid ${T.border.default}`, padding: "32px" }}>
+            <SystemDiagram activeEntities={step.entities} />
+          </div>
+        </motion.div>
+
+        {/* ── QUALITY THRESHOLD ── */}
+        <motion.div initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }}
+          style={{ marginBottom: "80px" }}
+        >
+          <p style={{ fontSize: "10px", color: T.text.muted, fontFamily: "monospace", letterSpacing: "0.25em", marginBottom: "12px" }}>
+            CHAINLINK VERIFICATION
+          </p>
+          <h2 style={{ fontSize: "clamp(24px, 3vw, 40px)", fontWeight: 900, fontFamily: "var(--font-syne), sans-serif", letterSpacing: "-0.03em", marginBottom: "28px" }}>
+            QUALITY THRESHOLD
+          </h2>
+          <QualitySlider />
+        </motion.div>
+
+        {/* ── TECH STACK ── */}
+        <motion.div initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }}
+          style={{ marginBottom: "80px" }}
+        >
+          <p style={{ fontSize: "10px", color: T.text.muted, fontFamily: "monospace", letterSpacing: "0.25em", marginBottom: "12px" }}>
+            TECHNICAL STACK
+          </p>
+          <h2 style={{ fontSize: "clamp(24px, 3vw, 40px)", fontWeight: 900, fontFamily: "var(--font-syne), sans-serif", letterSpacing: "-0.03em", marginBottom: "28px" }}>
+            PROTOCOL BREAKDOWN
+          </h2>
+
+          {/* Tab buttons */}
+          <div style={{ display: "flex", gap: "1px", background: T.border.subtle, marginBottom: "1px" }}>
+            {TECH_TABS.map((tab) => (
+              <button key={tab.id} onClick={() => setActiveTech(tab.id)}
+                style={{
+                  flex: 1, padding: "12px", fontSize: "11px", fontWeight: 700,
+                  letterSpacing: "0.15em", cursor: "pointer",
+                  background: activeTech === tab.id ? `${tab.color}12` : T.bg.card,
+                  color: activeTech === tab.id ? tab.color : T.text.disabled,
+                  border: "none",
+                  borderBottom: activeTech === tab.id ? `2px solid ${tab.color}` : "2px solid transparent",
+                  fontFamily: "monospace", transition: "all 0.15s",
+                }}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Tab content */}
+          <AnimatePresence mode="wait">
+            {TECH_TABS.filter((t) => t.id === activeTech).map((tab) => (
+              <motion.div key={tab.id}
+                initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                style={{ padding: "32px", background: T.bg.card, border: `1px solid ${T.border.default}`, borderTop: `2px solid ${tab.color}` }}
+              >
+                <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: "32px", alignItems: "start" }}>
+                  <div>
+                    <div style={{ fontSize: "11px", color: tab.color, fontFamily: "monospace", letterSpacing: "0.15em", marginBottom: "10px" }}>
+                      {tab.role} · {tab.when}
+                    </div>
+                    <p style={{ fontSize: "14px", color: T.text.secondary, lineHeight: 1.8, margin: "0 0 20px" }}>
+                      {tab.desc}
+                    </p>
+                    <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                      {tab.services.map((s) => (
+                        <span key={s} style={{ fontSize: "10px", padding: "4px 12px", background: `${tab.color}08`, border: `1px solid ${tab.color}20`, color: tab.color, fontFamily: "monospace" }}>
+                          {s}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                  <div style={{ textAlign: "right" }}>
+                    <div style={{ fontSize: "10px", color: T.text.disabled, fontFamily: "monospace", letterSpacing: "0.1em", marginBottom: "6px" }}>ACTIVE IN</div>
+                    <div style={{ fontSize: "16px", fontWeight: 900, fontFamily: "var(--font-syne), sans-serif", color: tab.color }}>{tab.when}</div>
+                  </div>
+                </div>
+              </motion.div>
+            ))}
+          </AnimatePresence>
+        </motion.div>
+
+        {/* ── M2M FLOW ── */}
+        <motion.div initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }}
+          style={{ marginBottom: "48px" }}
+        >
+          <p style={{ fontSize: "10px", color: T.text.muted, fontFamily: "monospace", letterSpacing: "0.25em", marginBottom: "12px" }}>
+            MACHINE-TO-MACHINE
+          </p>
+          <h2 style={{ fontSize: "clamp(24px, 3vw, 40px)", fontWeight: 900, fontFamily: "var(--font-syne), sans-serif", letterSpacing: "-0.03em", marginBottom: "28px" }}>
+            AI HIRES AI
+          </h2>
+          <div style={{ background: T.bg.card, border: `1px solid ${T.border.default}`, borderTop: `2px solid #60a5fa` }}>
+            <Terminal
+              lines={[
+                { delay: 0,    text: "> [AgentA] Need translation for job output" },
+                { delay: 700,  text: "  Scanning ERC-8004 registry for translation agents..." },
+                { delay: 1500, text: "  Found: TranslatorAI (rep: 87, price: $1.50)" },
+                { delay: 2200, text: "  Initiating x402 HTTP payment..." },
+                { delay: 2800, text: "  POST https://translator.agent/api" },
+                { delay: 3300, text: "  402 Payment Required → Sending 0.000714 ETH" },
+                { delay: 4000, text: "  [TranslatorAI] Payment received. Processing..." },
+                { delay: 5000, text: "  [TranslatorAI] Translation complete. Returning result." },
+                { delay: 5600, text: "✓ Machine-to-machine job complete. No humans involved." },
+              ]}
+              isPlaying={playingTerminal === 99}
+              onPlay={() => handlePlay(99)}
+            />
+          </div>
+        </motion.div>
+
+      </div>
     </div>
   );
 }
