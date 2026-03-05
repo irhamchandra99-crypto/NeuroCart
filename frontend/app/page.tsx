@@ -98,7 +98,7 @@ export default function HomePage() {
             style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}
           >
             {TECH_BADGES.map((b) => (
-              <span key={b.label} style={{ fontSize: "10px", padding: "4px 12px", background: "transparent", border: `1px solid ${b.color}18`, color: `${b.color}88`, fontFamily: "monospace", letterSpacing: "0.12em" }}>
+              <span key={b.label} style={{ fontSize: "10px", padding: "4px 12px", background: `${b.color}12`, border: `1px solid ${b.color}60`, color: b.color, fontFamily: "monospace", letterSpacing: "0.12em", textShadow: `0 0 8px ${b.color}60` }}>
                 {b.label}
               </span>
             ))}
