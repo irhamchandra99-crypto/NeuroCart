@@ -42,7 +42,7 @@ function WalletButton() {
 
   if (isConnected && address) {
     const shortAddr = `${address.slice(0, 6)}...${address.slice(-4)}`;
-    const isWrongNetwork = chain?.id !== 421614; // Arbitrum Sepolia ✅
+    const isWrongNetwork = chain?.id !== 84532; // Arbitrum Sepolia ✅
 
     return (
       <div style={{ position: "relative" }} onMouseDown={(e) => e.stopPropagation()}>
