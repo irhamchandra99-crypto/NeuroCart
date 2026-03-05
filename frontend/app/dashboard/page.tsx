@@ -23,9 +23,9 @@ const T = {
   text: {
     primary:   "#ffffff",
     secondary: "#aaaaaa",
-    muted:     "#6ee7b7",   // brand secondary — labels, metadata
+    muted:     "#6ee7b7",
     disabled:  "#333333",
-    accent:    "#4ade80",   // brand primary — CTA, highlights
+    accent:    "#4ade80",
   },
   border: {
     default: "#111111",
@@ -45,6 +45,12 @@ const T = {
     slow:   "0.35s cubic-bezier(0.16,1,0.3,1)",
   },
 };
+
+// ── HELPER ───────────────────────────────────────────────────
+function shortAddr(addr: unknown): string {
+  if (!addr || typeof addr !== "string" || addr.length < 10) return "0x???...????";
+  return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
+}
 
 type AgentUI = {
   id: number; name: string; skills: string[];
@@ -113,9 +119,6 @@ function AnimatedCounter({ value, duration = 1.5, isFloat = false }: {
   return <>{isFloat ? display.toFixed(4) : display}</>;
 }
 
-// ── ANIMATED BACKGROUND ──────────────────────────────────────
-
-
 // ── LIVE FEED ─────────────────────────────────────────────────
 function LiveFeed({ agents }: { agents: AgentUI[] }) {
   const [events, setEvents] = useState(LIVE_EVENTS_INITIAL);
@@ -129,6 +132,7 @@ function LiveFeed({ agents }: { agents: AgentUI[] }) {
     const interval = setInterval(() => {
       const type  = eventTypes[Math.floor(Math.random() * eventTypes.length)];
       const agent = agents[Math.floor(Math.random() * agents.length)];
+      if (!agent) return;
       setEvents((prev) => [{
         id: Date.now(), type, agent: agent.name,
         score: type === "JOB_COMPLETED" ? Math.floor(Math.random() * 20) + 80 : 0,
@@ -296,7 +300,6 @@ function AgentCard({ agent, index, onHire, canHire }: { agent: AgentUI; index: n
         boxShadow: hovered ? "0 8px 32px rgba(74,222,128,0.06)" : "none",
         opacity: agent.isActive ? 1 : 0.5,
       }}>
-        {/* Header */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
           <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
             <motion.div animate={agent.isActive ? { opacity: [1, 0.3, 1] } : {}} transition={{ duration: 2, repeat: Infinity }}
@@ -309,13 +312,11 @@ function AgentCard({ agent, index, onHire, canHire }: { agent: AgentUI; index: n
           <span style={{ fontSize: "10px", color: T.text.disabled, fontFamily: "monospace" }}>#{String(agent.id).padStart(3, "0")}</span>
         </div>
 
-        {/* Name */}
         <h3 style={{ fontSize: "26px", fontWeight: 900, letterSpacing: "-0.03em", lineHeight: 1, marginBottom: "5px", fontFamily: "var(--font-syne), sans-serif", color: hovered ? T.text.primary : "#ddd", transition: `color ${T.motion.fast}` }}>
           {agent.name}
         </h3>
         <p style={{ fontSize: "11px", color: T.text.muted, fontFamily: "monospace", marginBottom: "16px", opacity: 0.5 }}>{agent.owner}</p>
 
-        {/* Skills */}
         <div style={{ display: "flex", flexWrap: "wrap", gap: "5px", marginBottom: "18px" }}>
           {agent.skills.map((skill) => (
             <span key={skill} style={{ fontSize: "10px", padding: "3px 8px", background: "rgba(110,231,183,0.05)", border: "1px solid rgba(110,231,183,0.1)", color: T.text.muted, fontFamily: "monospace", letterSpacing: "0.08em" }}>
@@ -324,7 +325,6 @@ function AgentCard({ agent, index, onHire, canHire }: { agent: AgentUI; index: n
           ))}
         </div>
 
-        {/* Stats */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "1px", background: T.border.default, marginBottom: "14px" }}>
           {[
             { label: "PRICE", value: agent.priceDisplay, color: T.text.accent },
@@ -338,7 +338,6 @@ function AgentCard({ agent, index, onHire, canHire }: { agent: AgentUI; index: n
           ))}
         </div>
 
-        {/* Rep bar */}
         <div style={{ height: "2px", background: T.border.default, marginBottom: "14px", overflow: "hidden" }}>
           <motion.div initial={{ width: 0 }} animate={{ width: `${agent.reputation}%` }}
             transition={{ delay: index * 0.08 + 0.4, duration: 1.2, ease: "easeOut" }}
@@ -346,7 +345,6 @@ function AgentCard({ agent, index, onHire, canHire }: { agent: AgentUI; index: n
           />
         </div>
 
-        {/* CTA */}
         <motion.button whileTap={{ scale: 0.97 }}
           onClick={() => { if (agent.isActive && canHire) onHire(); }}
           style={{
@@ -486,7 +484,10 @@ function HomeContent({ tab, setTab, hireAgent, setHireAgent, isConnected, useRea
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const jobBatchContracts = useMemo((): any[] => {
     if (!useRealData || jobCount === 0) return [];
-    return Array.from({ length: Math.min(jobCount, 20) }, (_, i) => ({ address: ESCROW_ADDRESS as `0x${string}`, abi: JOB_ESCROW_ABI, functionName: "jobs", args: [BigInt(i)] }));
+    return Array.from({ length: Math.min(jobCount, 20) }, (_, i) => ({
+      address: ESCROW_ADDRESS as `0x${string}`, abi: JOB_ESCROW_ABI,
+      functionName: "jobs", args: [BigInt(i)],
+    }));
   }, [useRealData, jobCount]);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -500,8 +501,19 @@ function HomeContent({ tab, setTab, hireAgent, setHireAgent, isConnected, useRea
       const agentRaw = agentBatchData[i * 2]?.result as any;
       const skillsRaw = agentBatchData[i * 2 + 1]?.result as string[] | undefined;
       if (!agentRaw) continue;
-      const repScore = agentRaw.totalFeedback > 0n ? Number(agentRaw.reputationTotal) / Number(agentRaw.totalFeedback) : 0;
-      result.push({ id: i, name: agentRaw.name, skills: skillsRaw ?? [], priceDisplay: `$${(Number(agentRaw.priceUSDCents) / 100).toFixed(2)}`, reputation: Math.round(repScore), totalJobs: Number(agentRaw.totalJobs), isActive: agentRaw.isActive, owner: `${(agentRaw.owner as string).slice(0, 6)}...${(agentRaw.owner as string).slice(-4)}` });
+      const repScore = agentRaw.totalFeedback > 0n
+        ? Number(agentRaw.reputationTotal) / Number(agentRaw.totalFeedback)
+        : 0;
+      result.push({
+        id: i,
+        name: agentRaw.name ?? `Agent #${i}`,
+        skills: skillsRaw ?? [],
+        priceDisplay: `$${(Number(agentRaw.priceUSDCents) / 100).toFixed(2)}`,
+        reputation: Math.round(repScore),
+        totalJobs: Number(agentRaw.totalJobs ?? 0),
+        isActive: agentRaw.isActive ?? false,
+        owner: shortAddr(agentRaw.owner),  // ✅ safe slice
+      });
     }
     return result.length > 0 ? result : MOCK_AGENTS;
   }, [useRealData, agentBatchData, agentCount]);
@@ -513,7 +525,15 @@ function HomeContent({ tab, setTab, hireAgent, setHireAgent, isConnected, useRea
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const jobRaw = jobBatchData[i]?.result as any;
       if (!jobRaw) continue;
-      result.push({ id: i, description: jobRaw.description, payment: formatEther(jobRaw.payment as bigint), paymentToken: jobRaw.paymentToken === 0 ? "ETH" : "USDC", status: jobRaw.status, agentId: Number(jobRaw.registryAgentId), qualityScore: jobRaw.qualityScore });
+      result.push({
+        id: i,
+        description: jobRaw.description ?? jobRaw.jobDescription ?? "",
+        payment: formatEther((jobRaw.payment ?? 0n) as bigint),
+        paymentToken: jobRaw.paymentToken === 0 ? "ETH" : "USDC",
+        status: jobRaw.status ?? 0,
+        agentId: Number(jobRaw.registryAgentId ?? jobRaw.agentId ?? 0),
+        qualityScore: jobRaw.qualityScore ?? 0,
+      });
     }
     return result.length > 0 ? result : MOCK_JOBS;
   }, [useRealData, jobBatchData, jobCount]);
@@ -524,9 +544,7 @@ function HomeContent({ tab, setTab, hireAgent, setHireAgent, isConnected, useRea
   const avgScore       = jobs.filter((j) => j.qualityScore > 0).reduce((acc, j, _, arr) => acc + j.qualityScore / arr.length, 0);
 
   return (
-    <div style={{ minHeight: "100vh", background: T.bg.base, fontFamily: "var(--font-space), sans-serif", color: T.text.primary, position: "relative" }}>
-      
-
+    <div style={{ minHeight: "100vh", background: "transparent", fontFamily: "var(--font-space), sans-serif", color: T.text.primary, position: "relative" }}>
       <div style={{ position: "relative", zIndex: 1 }}>
 
         {/* DEMO BANNER */}
@@ -546,10 +564,10 @@ function HomeContent({ tab, setTab, hireAgent, setHireAgent, isConnected, useRea
         {/* METRICS BAR */}
         <section style={{ borderBottom: `1px solid ${T.border.subtle}` }}>
           <div style={{ maxWidth: "1400px", margin: "0 auto", display: "grid", gridTemplateColumns: "repeat(4, 1fr)" }}>
-            <MetricCard label="TOTAL AGENTS"   value={agents.length}        sub={`${activeAgents} active`}    index={0} />
-            <MetricCard label="JOBS COMPLETED" value={completedJobs}        sub="Chainlink verified"          index={1} />
-            <MetricCard label="VOLUME"         value={totalVolumeEth}       sub="ETH transacted"             index={2} isFloat />
-            <MetricCard label="AVG QUALITY"    value={Math.round(avgScore)} sub="Chainlink score avg"        index={3} />
+            <MetricCard label="TOTAL AGENTS"   value={agents.length}        sub={`${activeAgents} active`}   index={0} />
+            <MetricCard label="JOBS COMPLETED" value={completedJobs}        sub="Chainlink verified"         index={1} />
+            <MetricCard label="VOLUME"         value={totalVolumeEth}       sub="ETH transacted"            index={2} isFloat />
+            <MetricCard label="AVG QUALITY"    value={Math.round(avgScore)} sub="Chainlink score avg"       index={3} />
           </div>
         </section>
 
@@ -558,7 +576,6 @@ function HomeContent({ tab, setTab, hireAgent, setHireAgent, isConnected, useRea
 
           {/* LEFT */}
           <div>
-            {/* Tabs */}
             <div style={{ display: "flex", marginBottom: "20px", borderBottom: `1px solid ${T.border.subtle}` }}>
               {(["agents", "jobs"] as const).map((t) => (
                 <button key={t} onClick={() => setTab(t)}
@@ -611,7 +628,7 @@ function HomeContent({ tab, setTab, hireAgent, setHireAgent, isConnected, useRea
         {/* FOOTER */}
         <footer style={{ borderTop: `1px solid ${T.border.subtle}`, padding: "18px 48px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <span style={{ fontSize: "10px", color: T.text.disabled, fontFamily: "monospace", letterSpacing: "0.15em" }}>
-            NEUROCART v2.0 · ARBITRUM SEPOLIA · CHAINLINK
+            NEUROCART v2.0 · BASE SEPOLIA · CHAINLINK
           </span>
           <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
             <motion.div animate={{ opacity: [1, 0.3, 1] }} transition={{ duration: 2, repeat: Infinity }}
