@@ -34,14 +34,6 @@ const STATUS_MAP = {
   4: { label: "CANCELLED", color: "#f87171", bg: "rgba(248,113,113,0.08)", border: "rgba(248,113,113,0.2)" },
 } as const;
 
-const MOCK_JOBS: JobUI[] = [
-  { id: 0, description: "Ringkas artikel berita 3000 kata tentang AI", jobType: "summarization", payment: "0.0007", paymentToken: "ETH", status: 3, agentId: 0, agentName: "SummarizerBot",  client: "0xf39F...2266", provider: "0x7099...7222", qualityScore: 92, createdAt: Date.now()-7200000,  deadline: Date.now()+79200000 },
-  { id: 1, description: "Terjemahkan dokumen kontrak EN ke ID",         jobType: "translation",   payment: "0.0005", paymentToken: "ETH", status: 2, agentId: 1, agentName: "TranslatorAI",   client: "0x3C44...93BC", provider: "0x7099...7222", qualityScore: 0,  createdAt: Date.now()-3600000,  deadline: Date.now()+82800000 },
-  { id: 2, description: "OCR scan 10 receipt dari gambar",              jobType: "ocr",           payment: "0.0010", paymentToken: "ETH", status: 1, agentId: 2, agentName: "VisionBot",      client: "0x9065...1638", provider: "0x3C44...93BC", qualityScore: 0,  createdAt: Date.now()-1800000,  deadline: Date.now()+84600000 },
-  { id: 3, description: "Transkripsi audio podcast 5 menit",            jobType: "transcription", payment: "0.0003", paymentToken: "ETH", status: 0, agentId: 3, agentName: "TranscriberBot", client: "0xf39F...2266", provider: "0x9065...1638", qualityScore: 0,  createdAt: Date.now()-600000,   deadline: Date.now()+85800000 },
-  { id: 4, description: "Ringkas laporan keuangan Q3 2025",             jobType: "summarization", payment: "0.0007", paymentToken: "ETH", status: 4, agentId: 0, agentName: "SummarizerBot",  client: "0x7099...7222", provider: "0x3C44...93BC", qualityScore: 61, createdAt: Date.now()-14400000, deadline: Date.now()-7200000  },
-];
-
 const timeAgo = (ts: number) => {
   const diff = Date.now() - ts;
   const m = Math.floor(diff / 60000);
@@ -49,7 +41,8 @@ const timeAgo = (ts: number) => {
   const d = Math.floor(diff / 86400000);
   if (d > 0) return `${d}d ago`;
   if (h > 0) return `${h}h ago`;
-  return `${m}m ago`;
+  if (m > 0) return `${m}m ago`;
+  return "just now";
 };
 
 // ── JOB CARD ──────────────────────────────────────────────────
@@ -74,12 +67,11 @@ function JobCard({ job, index, onClick }: { job: JobUI; index: number; onClick: 
         padding: "20px 24px",
         cursor: "pointer",
         transition: "background 0.2s, border-color 0.2s",
-        boxShadow: hovered ? `0 8px 32px rgba(0,0,0,0.4), 0 0 0 0 ${s.color}` : "0 2px 12px rgba(0,0,0,0.3)",
+        boxShadow: hovered ? `0 8px 32px rgba(0,0,0,0.4)` : "0 2px 12px rgba(0,0,0,0.3)",
         position: "relative",
         overflow: "hidden",
       }}
     >
-      {/* Hover glow top edge */}
       {hovered && (
         <motion.div
           initial={{ opacity: 0 }} animate={{ opacity: 1 }}
@@ -87,16 +79,14 @@ function JobCard({ job, index, onClick }: { job: JobUI; index: number; onClick: 
         />
       )}
 
-      {/* Top row: ID + status */}
+      {/* Top row */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
         <span style={{ fontSize: "10px", color: T.text.disabled, fontFamily: "monospace", letterSpacing: "0.15em" }}>
           #{String(job.id).padStart(3, "0")}
         </span>
         <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
           {job.status === 2 && (
-            <motion.span
-              animate={{ opacity: [1, 0.4, 1] }}
-              transition={{ duration: 1.5, repeat: Infinity }}
+            <motion.span animate={{ opacity: [1, 0.4, 1] }} transition={{ duration: 1.5, repeat: Infinity }}
               style={{ fontSize: "9px", color: "#e879f9", fontFamily: "monospace" }}
             >● LIVE</motion.span>
           )}
@@ -115,31 +105,36 @@ function JobCard({ job, index, onClick }: { job: JobUI; index: number; onClick: 
           animate={{ color: hovered ? T.text.primary : "#cccccc" }}
           style={{ fontSize: "14px", fontWeight: 600, lineHeight: 1.4, marginBottom: "6px", fontFamily: "var(--font-space), sans-serif" }}
         >
-          {job.description}
+          {job.description || `Job #${job.id}`}
         </motion.div>
         <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-          <span style={{ fontSize: "10px", padding: "2px 8px", background: T.bg.input, border: `1px solid ${T.border.default}`, color: T.text.secondary, fontFamily: "monospace", borderRadius: T.radius.badge }}>
-            {job.jobType}
-          </span>
+          {job.jobType && (
+            <span style={{ fontSize: "10px", padding: "2px 8px", background: T.bg.input, border: `1px solid ${T.border.default}`, color: T.text.secondary, fontFamily: "monospace", borderRadius: T.radius.badge }}>
+              {job.jobType}
+            </span>
+          )}
           <span style={{ fontSize: "10px", padding: "2px 8px", background: T.bg.input, border: `1px solid ${T.border.default}`, color: T.text.secondary, fontFamily: "monospace", borderRadius: T.radius.badge }}>
             {job.agentName}
           </span>
           {job.status === 2 && (
             <motion.span
-              animate={{ opacity: [1, 0.5, 1] }}
-              transition={{ duration: 1.5, repeat: Infinity }}
+              animate={{ opacity: [1, 0.5, 1] }} transition={{ duration: 1.5, repeat: Infinity }}
               style={{ fontSize: "10px", padding: "2px 8px", background: "rgba(232,121,249,0.06)", border: "1px solid rgba(232,121,249,0.15)", color: "#e879f9", fontFamily: "monospace", borderRadius: T.radius.badge }}
             >chainlink verifying...</motion.span>
           )}
           {job.status === 3 && job.qualityScore > 0 && (
-            <span style={{ fontSize: "10px", padding: "2px 8px", background: job.qualityScore >= 80 ? "rgba(74,222,128,0.08)" : "rgba(248,113,113,0.08)", border: `1px solid ${job.qualityScore >= 80 ? "rgba(74,222,128,0.2)" : "rgba(248,113,113,0.2)"}`, color: job.qualityScore >= 80 ? "#4ade80" : "#f87171", fontFamily: "monospace", borderRadius: T.radius.badge }}>
-              score: {job.qualityScore}/100
-            </span>
+            <span style={{
+              fontSize: "10px", padding: "2px 8px",
+              background: job.qualityScore >= 80 ? "rgba(74,222,128,0.08)" : "rgba(248,113,113,0.08)",
+              border: `1px solid ${job.qualityScore >= 80 ? "rgba(74,222,128,0.2)" : "rgba(248,113,113,0.2)"}`,
+              color: job.qualityScore >= 80 ? "#4ade80" : "#f87171",
+              fontFamily: "monospace", borderRadius: T.radius.badge,
+            }}>score: {job.qualityScore}/100</span>
           )}
         </div>
       </div>
 
-      {/* Bottom row: payment + time */}
+      {/* Bottom row */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: "14px", borderTop: `1px solid ${T.border.subtle}` }}>
         <motion.span
           animate={{ color: hovered ? T.text.accent : "#666666" }}
@@ -161,7 +156,6 @@ type FilterState = { status: number | "all"; token: "all" | "ETH" | "USDC" };
 function FilterBar({ filters, setFilters, counts }: { filters: FilterState; setFilters: (f: FilterState) => void; counts: Record<string, number> }) {
   return (
     <div style={{ display: "flex", gap: "6px", flexWrap: "wrap", alignItems: "center", padding: "16px 20px", background: T.bg.card, borderRadius: `${T.radius.card} ${T.radius.card} 0 0`, borderBottom: `1px solid ${T.border.default}` }}>
-      {/* Status filters */}
       <button onClick={() => setFilters({ ...filters, status: "all" })}
         style={{ padding: "5px 14px", fontSize: "10px", fontWeight: 700, letterSpacing: "0.12em", cursor: "pointer", background: filters.status === "all" ? "#4ade80" : T.bg.elevated, color: filters.status === "all" ? "#000" : T.text.secondary, border: `1px solid ${filters.status === "all" ? "#4ade80" : T.border.default}`, fontFamily: "monospace", transition: "all 0.15s", borderRadius: T.radius.button }}
       >ALL {counts.all ? `(${counts.all})` : ""}</button>
@@ -186,7 +180,7 @@ function FilterBar({ filters, setFilters, counts }: { filters: FilterState; setF
 // ── JOB DETAIL MODAL ─────────────────────────────────────────
 function JobDetailModal({ job, onClose }: { job: JobUI; onClose: () => void }) {
   const s = STATUS_MAP[job.status as keyof typeof STATUS_MAP] ?? STATUS_MAP[0];
-  const isExpired = job.deadline < Date.now() && job.status < 2;
+  const isExpired = job.deadline > 0 && job.deadline < Date.now() && job.status < 2;
 
   return (
     <motion.div
@@ -208,7 +202,7 @@ function JobDetailModal({ job, onClose }: { job: JobUI; onClose: () => void }) {
               JOB #{String(job.id).padStart(3, "0")}
             </p>
             <h2 style={{ fontSize: "22px", fontWeight: 900, letterSpacing: "-0.02em", margin: 0, fontFamily: "var(--font-syne), sans-serif", lineHeight: 1.2, maxWidth: "380px" }}>
-              {job.description}
+              {job.description || `Job #${job.id}`}
             </h2>
           </div>
           <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.95 }} onClick={onClose}
@@ -216,16 +210,18 @@ function JobDetailModal({ job, onClose }: { job: JobUI; onClose: () => void }) {
           >×</motion.button>
         </div>
 
-        {/* Status + type badges */}
+        {/* Badges */}
         <div style={{ display: "flex", gap: "8px", marginBottom: "24px", flexWrap: "wrap" }}>
           <span style={{ fontSize: "10px", fontWeight: 700, padding: "5px 12px", background: s.bg, border: `1px solid ${s.border}`, color: s.color, fontFamily: "monospace", borderRadius: T.radius.badge }}>{s.label}</span>
-          <span style={{ fontSize: "10px", padding: "5px 12px", background: T.bg.elevated, border: `1px solid ${T.border.default}`, color: T.text.secondary, fontFamily: "monospace", borderRadius: T.radius.badge }}>{job.jobType.toUpperCase()}</span>
+          {job.jobType && (
+            <span style={{ fontSize: "10px", padding: "5px 12px", background: T.bg.elevated, border: `1px solid ${T.border.default}`, color: T.text.secondary, fontFamily: "monospace", borderRadius: T.radius.badge }}>{job.jobType.toUpperCase()}</span>
+          )}
           {job.paymentToken === "USDC" && (
             <span style={{ fontSize: "10px", padding: "5px 12px", background: "rgba(96,165,250,0.06)", border: "1px solid rgba(96,165,250,0.15)", color: "#60a5fa", fontFamily: "monospace", borderRadius: T.radius.badge }}>x402 USDC</span>
           )}
         </div>
 
-        {/* Stats grid */}
+        {/* Stats */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "1px", background: T.border.subtle, borderRadius: T.radius.input, overflow: "hidden", marginBottom: "20px" }}>
           {[
             { label: "PAYMENT", value: `${parseFloat(job.payment).toFixed(4)} ${job.paymentToken}`, color: T.text.accent },
@@ -239,7 +235,7 @@ function JobDetailModal({ job, onClose }: { job: JobUI; onClose: () => void }) {
           ))}
         </div>
 
-        {/* Quality score bar */}
+        {/* Quality bar */}
         {job.qualityScore > 0 && (
           <div style={{ marginBottom: "20px", padding: "16px", background: T.bg.elevated, borderRadius: T.radius.input, border: `1px solid ${T.border.default}` }}>
             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "10px" }}>
@@ -260,7 +256,7 @@ function JobDetailModal({ job, onClose }: { job: JobUI; onClose: () => void }) {
           </div>
         )}
 
-        {/* Verifying indicator */}
+        {/* Verifying */}
         {job.status === 2 && (
           <div style={{ padding: "14px 16px", marginBottom: "20px", background: "rgba(232,121,249,0.05)", border: "1px solid rgba(232,121,249,0.15)", borderRadius: T.radius.input, display: "flex", alignItems: "center", gap: "10px" }}>
             <motion.div animate={{ opacity: [1, 0.3, 1] }} transition={{ duration: 1.5, repeat: Infinity }}
@@ -283,17 +279,19 @@ function JobDetailModal({ job, onClose }: { job: JobUI; onClose: () => void }) {
         </div>
 
         {/* Timeline */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1px", background: T.border.subtle, borderRadius: T.radius.input, overflow: "hidden" }}>
-          {[
-            { label: "CREATED",  value: new Date(job.createdAt).toLocaleString("id-ID"), warn: false },
-            { label: "DEADLINE", value: new Date(job.deadline).toLocaleString("id-ID"),  warn: isExpired },
-          ].map((t) => (
-            <div key={t.label} style={{ padding: "14px", background: T.bg.elevated }}>
-              <div style={{ fontSize: "9px", color: T.text.muted, fontFamily: "monospace", letterSpacing: "0.15em", marginBottom: "4px", opacity: 0.5 }}>{t.label}</div>
-              <div style={{ fontSize: "11px", color: t.warn ? "#f87171" : T.text.secondary, fontFamily: "monospace" }}>{t.value}</div>
-            </div>
-          ))}
-        </div>
+        {(job.createdAt > 0 || job.deadline > 0) && (
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1px", background: T.border.subtle, borderRadius: T.radius.input, overflow: "hidden" }}>
+            {[
+              { label: "CREATED",  value: job.createdAt > 0 ? new Date(job.createdAt).toLocaleString("id-ID") : "—", warn: false },
+              { label: "DEADLINE", value: job.deadline > 0  ? new Date(job.deadline).toLocaleString("id-ID")  : "—", warn: isExpired },
+            ].map((t) => (
+              <div key={t.label} style={{ padding: "14px", background: T.bg.elevated }}>
+                <div style={{ fontSize: "9px", color: T.text.muted, fontFamily: "monospace", letterSpacing: "0.15em", marginBottom: "4px", opacity: 0.5 }}>{t.label}</div>
+                <div style={{ fontSize: "11px", color: t.warn ? "#f87171" : T.text.secondary, fontFamily: "monospace" }}>{t.value}</div>
+              </div>
+            ))}
+          </div>
+        )}
       </motion.div>
     </motion.div>
   );
@@ -332,21 +330,34 @@ function JobsContent({ useRealData, selectedJob, setSelectedJob, filters, setFil
   setSelectedJob: (j: JobUI | null) => void;
   filters: FilterState; setFilters: (f: FilterState) => void;
 }) {
-  const { data: jobCountRaw } = useReadContract({ address: ESCROW_ADDRESS as `0x${string}`, abi: JOB_ESCROW_ABI, functionName: "jobCount", query: { enabled: useRealData } });
+  const { data: jobCountRaw } = useReadContract({
+    address: ESCROW_ADDRESS as `0x${string}`, abi: JOB_ESCROW_ABI,
+    functionName: "jobCount", query: { enabled: useRealData },
+  });
   const jobCount = jobCountRaw ? Number(jobCountRaw) : 0;
-  const { data: agentCountRaw } = useReadContract({ address: REGISTRY_ADDRESS as `0x${string}`, abi: AGENT_REGISTRY_ABI, functionName: "agentCount", query: { enabled: useRealData } });
+
+  const { data: agentCountRaw } = useReadContract({
+    address: REGISTRY_ADDRESS as `0x${string}`, abi: AGENT_REGISTRY_ABI,
+    functionName: "agentCount", query: { enabled: useRealData },
+  });
   const agentCount = agentCountRaw ? Number(agentCountRaw) : 0;
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const jobBatchContracts = useMemo((): any[] => {
     if (!useRealData || jobCount === 0) return [];
-    return Array.from({ length: Math.min(jobCount, 50) }, (_, i) => ({ address: ESCROW_ADDRESS as `0x${string}`, abi: JOB_ESCROW_ABI, functionName: "jobs", args: [BigInt(i)] }));
+    return Array.from({ length: Math.min(jobCount, 50) }, (_, i) => ({
+      address: ESCROW_ADDRESS as `0x${string}`, abi: JOB_ESCROW_ABI,
+      functionName: "jobs", args: [BigInt(i)],
+    }));
   }, [useRealData, jobCount]);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const agentNameContracts = useMemo((): any[] => {
     if (!useRealData || agentCount === 0) return [];
-    return Array.from({ length: Math.min(agentCount, 50) }, (_, i) => ({ address: REGISTRY_ADDRESS as `0x${string}`, abi: AGENT_REGISTRY_ABI, functionName: "agents", args: [BigInt(i)] }));
+    return Array.from({ length: Math.min(agentCount, 50) }, (_, i) => ({
+      address: REGISTRY_ADDRESS as `0x${string}`, abi: AGENT_REGISTRY_ABI,
+      functionName: "agents", args: [BigInt(i)],
+    }));
   }, [useRealData, agentCount]);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -354,25 +365,75 @@ function JobsContent({ useRealData, selectedJob, setSelectedJob, filters, setFil
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: agentBatchData } = useReadContracts({ contracts: agentNameContracts as any, query: { enabled: agentNameContracts.length > 0 } });
 
+  // Build agentId → name map using index-based access
+  // agents() tuple: [0]=owner [1]=name [2]=endpoint [3]=metadataURI [4]=isActive ...
   const agentNameMap = useMemo(() => {
     const map: Record<number, string> = {};
     if (!agentBatchData) return map;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    agentBatchData.forEach((r, i) => { const raw = r?.result as any; if (raw?.name) map[i] = raw.name; });
+    agentBatchData.forEach((r, i) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const raw = r?.result as any;
+      if (!raw) return;
+      // Try named field first (wagmi with proper ABI), then index fallback
+      const name = raw.name ?? raw[1];
+      if (name) map[i] = name;
+    });
     return map;
   }, [agentBatchData]);
 
   const jobs: JobUI[] = useMemo(() => {
-    if (!useRealData || !jobBatchData || jobBatchData.length === 0) return MOCK_JOBS;
+    // ── NO FALLBACK TO MOCK — return empty array if no real data ──
+    if (!useRealData || !jobBatchData || jobBatchData.length === 0) return [];
     const result: JobUI[] = [];
     for (let i = 0; i < Math.min(jobCount, 50); i++) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const raw = jobBatchData[i]?.result as any;
       if (!raw) continue;
-      const agentId = Number(raw.registryAgentId);
-      result.push({ id: i, description: raw.jobDescription, jobType: raw.jobType, payment: formatEther(raw.payment as bigint), paymentToken: raw.paymentToken === 0 ? "ETH" : "USDC", status: raw.status, agentId, agentName: agentNameMap[agentId] ?? `Agent #${agentId}`, client: `${(raw.clientAgent as string).slice(0,6)}...${(raw.clientAgent as string).slice(-4)}`, provider: `${(raw.providerAgent as string).slice(0,6)}...${(raw.providerAgent as string).slice(-4)}`, qualityScore: raw.qualityScore, createdAt: Number(raw.createdAt)*1000, deadline: Number(raw.deadline)*1000 });
+
+      // ── JobEscrow.jobs() tuple index map (from ABI) ──
+      // [0]  id                    uint256
+      // [1]  client                address
+      // [2]  provider              address
+      // [3]  registryAgentId       uint256
+      // [4]  payment               uint256
+      // [5]  paymentToken          uint8
+      // [6]  resultData            string
+      // [7]  description           string
+      // [8]  jobType               string
+      // [9]  status                uint8
+      // [10] verificationRequestId bytes32
+      // [11] deadline              uint256
+      // [12] createdAt             uint256
+      // [13] qualityScore          uint8
+      const clientAddr   = (raw.client   ?? raw[1] ?? "") as string;
+      const providerAddr = (raw.provider ?? raw[2] ?? "") as string;
+      const agentId      = Number(raw.registryAgentId ?? raw[3] ?? 0);
+      const payment      = (raw.payment  ?? raw[4] ?? 0n) as bigint;
+      const paymentToken = Number(raw.paymentToken ?? raw[5] ?? 0);
+      const description  = (raw.description ?? raw[7] ?? "") as string;
+      const jobType      = (raw.jobType     ?? raw[8] ?? "") as string;
+      const status       = Number(raw.status ?? raw[9] ?? 0);
+      const deadline     = Number(raw.deadline  ?? raw[11] ?? 0);
+      const createdAt    = Number(raw.createdAt ?? raw[12] ?? 0);
+      const qualityScore = Number(raw.qualityScore ?? raw[13] ?? 0);
+
+      result.push({
+        id: i,
+        description,
+        jobType,
+        payment:      formatEther(payment),
+        paymentToken: paymentToken === 0 ? "ETH" : "USDC",
+        status,
+        agentId,
+        agentName:    agentNameMap[agentId] ?? `Agent #${agentId}`,
+        client:       clientAddr.length >= 10   ? `${clientAddr.slice(0,6)}...${clientAddr.slice(-4)}`   : clientAddr,
+        provider:     providerAddr.length >= 10 ? `${providerAddr.slice(0,6)}...${providerAddr.slice(-4)}` : providerAddr,
+        qualityScore,
+        createdAt:    createdAt * 1000,   // convert seconds → ms
+        deadline:     deadline  * 1000,
+      });
     }
-    return result.length > 0 ? result : MOCK_JOBS;
+    return result;
   }, [useRealData, jobBatchData, jobCount, agentNameMap]);
 
   const filteredJobs = useMemo(() => {
@@ -410,14 +471,14 @@ function JobsContent({ useRealData, selectedJob, setSelectedJob, filters, setFil
             </p>
           </motion.div>
 
-          {/* Stats row */}
+          {/* Stats */}
           <div style={{ display: "flex", gap: "12px", marginTop: "36px", flexWrap: "wrap" }}>
             {[
-              { label: "TOTAL JOBS",   value: String(jobs.length),                                   highlight: false, delay: 0.3  },
-              { label: "COMPLETED",    value: String(completedJobs),                                  highlight: false, delay: 0.35 },
-              { label: "VERIFYING",    value: String(verifyingJobs), highlight: verifyingJobs > 0,               delay: 0.4  },
-              { label: "VOLUME (ETH)", value: totalVolume.toFixed(4),                                 highlight: false, delay: 0.45 },
-              { label: "AVG SCORE",    value: avgScore > 0 ? `${Math.round(avgScore)}/100` : "—",     highlight: false, delay: 0.5  },
+              { label: "TOTAL JOBS",   value: String(jobs.length),                                 highlight: false, delay: 0.3  },
+              { label: "COMPLETED",    value: String(completedJobs),                                highlight: false, delay: 0.35 },
+              { label: "VERIFYING",    value: String(verifyingJobs), highlight: verifyingJobs > 0,             delay: 0.4  },
+              { label: "VOLUME (ETH)", value: totalVolume.toFixed(4),                               highlight: false, delay: 0.45 },
+              { label: "AVG SCORE",    value: avgScore > 0 ? `${Math.round(avgScore)}/100` : "—",   highlight: false, delay: 0.5  },
             ].map((s) => <StatCard key={s.label} {...s} />)}
           </div>
         </div>
@@ -426,17 +487,16 @@ function JobsContent({ useRealData, selectedJob, setSelectedJob, filters, setFil
       {/* ── JOBS GRID ── */}
       <section style={{ maxWidth: "1200px", margin: "0 auto", padding: "40px 48px" }}>
 
-        {/* Demo banner */}
+        {/* Status banner */}
         {!useRealData && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
             style={{ display: "inline-flex", alignItems: "center", gap: "8px", padding: "6px 14px", marginBottom: "24px", background: "rgba(251,191,36,0.04)", border: "1px solid rgba(251,191,36,0.12)", fontSize: "10px", color: "#fbbf24", fontFamily: "monospace", letterSpacing: "0.15em", borderRadius: T.radius.badge }}
           >
             <span style={{ width: "4px", height: "4px", background: "#fbbf24", display: "inline-block", borderRadius: "50%" }} />
-            DEMO MODE — CONNECT WALLET UNTUK DATA LIVE
+            CONNECT WALLET UNTUK DATA LIVE
           </motion.div>
         )}
 
-        {/* Filter bar + cards container */}
         <div style={{ border: `1px solid ${T.border.default}`, borderRadius: T.radius.card, overflow: "hidden" }}>
           <FilterBar filters={filters} setFilters={setFilters} counts={counts} />
 
@@ -449,9 +509,13 @@ function JobsContent({ useRealData, selectedJob, setSelectedJob, filters, setFil
 
           {/* Cards */}
           <div style={{ padding: "16px", background: T.bg.page, display: "flex", flexDirection: "column", gap: "10px" }}>
-            {filteredJobs.length === 0 ? (
+            {!useRealData ? (
               <div style={{ padding: "60px", textAlign: "center", color: T.text.disabled, fontSize: "12px", fontFamily: "monospace", letterSpacing: "0.1em" }}>
-                NO JOBS MATCH YOUR FILTER
+                CONNECT WALLET TO VIEW JOBS
+              </div>
+            ) : filteredJobs.length === 0 ? (
+              <div style={{ padding: "60px", textAlign: "center", color: T.text.disabled, fontSize: "12px", fontFamily: "monospace", letterSpacing: "0.1em" }}>
+                {jobCount === 0 ? "NO JOBS ON-CHAIN YET — HIRE AN AGENT TO GET STARTED" : "NO JOBS MATCH YOUR FILTER"}
               </div>
             ) : (
               <AnimatePresence mode="popLayout">

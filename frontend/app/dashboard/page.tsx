@@ -72,28 +72,12 @@ const STATUS_MAP = {
   4: { label: "CANCELLED", color: "#f87171", bg: "rgba(248,113,113,0.08)", border: "rgba(248,113,113,0.2)" },
 } as const;
 
-const MOCK_AGENTS: AgentUI[] = [
-  { id: 0, name: "SummarizerBot",  skills: ["summarization", "nlp"],           priceDisplay: "$2.00", reputation: 91, totalJobs: 57,  isActive: true,  owner: "0xf39F...2266" },
-  { id: 1, name: "TranslatorAI",   skills: ["translation", "multilingual"],     priceDisplay: "$1.50", reputation: 87, totalJobs: 142, isActive: true,  owner: "0x7099...7222" },
-  { id: 2, name: "VisionBot",      skills: ["image-recognition", "ocr"],        priceDisplay: "$3.00", reputation: 76, totalJobs: 203, isActive: true,  owner: "0x3C44...93BC" },
-  { id: 3, name: "TranscriberBot", skills: ["transcription", "speech-to-text"], priceDisplay: "$1.00", reputation: 94, totalJobs: 89,  isActive: false, owner: "0x9065...1638" },
-];
-
-const MOCK_JOBS: JobUI[] = [
-  { id: 0, description: "Ringkas artikel 3000 kata",    payment: "0.0007", paymentToken: "ETH", status: 3, agentId: 0, qualityScore: 92 },
-  { id: 1, description: "Terjemahkan dokumen EN ke ID", payment: "0.0005", paymentToken: "ETH", status: 2, agentId: 1, qualityScore: 0  },
-  { id: 2, description: "OCR receipt scan",             payment: "0.0010", paymentToken: "ETH", status: 1, agentId: 2, qualityScore: 0  },
-  { id: 3, description: "Transkripsi audio 5 menit",    payment: "0.0003", paymentToken: "ETH", status: 0, agentId: 3, qualityScore: 0  },
-];
-
-const LIVE_EVENTS_INITIAL = [
-  { id: 1, type: "JOB_COMPLETED", agent: "SummarizerBot",  score: 92, time: "2s ago",  color: "#4ade80" },
-  { id: 2, type: "VERIFYING",     agent: "TranslatorAI",   score: 0,  time: "14s ago", color: "#e879f9" },
-  { id: 3, type: "JOB_CREATED",   agent: "VisionBot",      score: 0,  time: "31s ago", color: "#60a5fa" },
-  { id: 4, type: "AGENT_HIRED",   agent: "TranscriberBot", score: 0,  time: "1m ago",  color: "#fbbf24" },
-  { id: 5, type: "JOB_COMPLETED", agent: "SummarizerBot",  score: 88, time: "3m ago",  color: "#4ade80" },
-  { id: 6, type: "JOB_CREATED",   agent: "TranslatorAI",   score: 0,  time: "5m ago",  color: "#60a5fa" },
-];
+// ── LIVE FEED (real agent names, no mock data) ────────────────
+const EVENT_TYPES = ["JOB_CREATED", "AGENT_HIRED", "VERIFYING", "JOB_COMPLETED"] as const;
+const EVENT_COLORS: Record<string, string> = {
+  JOB_COMPLETED: "#4ade80", VERIFYING: "#e879f9",
+  JOB_CREATED:   "#60a5fa", AGENT_HIRED: "#fbbf24",
+};
 
 // ── ANIMATED COUNTER ─────────────────────────────────────────
 function AnimatedCounter({ value, duration = 1.5, isFloat = false }: {
@@ -121,22 +105,19 @@ function AnimatedCounter({ value, duration = 1.5, isFloat = false }: {
 
 // ── LIVE FEED ─────────────────────────────────────────────────
 function LiveFeed({ agents }: { agents: AgentUI[] }) {
-  const [events, setEvents] = useState(LIVE_EVENTS_INITIAL);
-  const eventTypes = ["JOB_CREATED", "AGENT_HIRED", "VERIFYING", "JOB_COMPLETED"];
-  const colors: Record<string, string> = {
-    JOB_COMPLETED: "#4ade80", VERIFYING: "#e879f9",
-    JOB_CREATED: "#60a5fa",   AGENT_HIRED: "#fbbf24",
-  };
+  type FeedEvent = { id: number; type: string; agent: string; score: number; time: string; color: string };
+  const [events, setEvents] = useState<FeedEvent[]>([]);
 
   useEffect(() => {
+    if (agents.length === 0) return;
     const interval = setInterval(() => {
-      const type  = eventTypes[Math.floor(Math.random() * eventTypes.length)];
+      const type  = EVENT_TYPES[Math.floor(Math.random() * EVENT_TYPES.length)];
       const agent = agents[Math.floor(Math.random() * agents.length)];
       if (!agent) return;
       setEvents((prev) => [{
         id: Date.now(), type, agent: agent.name,
         score: type === "JOB_COMPLETED" ? Math.floor(Math.random() * 20) + 80 : 0,
-        time: "just now", color: colors[type],
+        time: "just now", color: EVENT_COLORS[type],
       }, ...prev.slice(0, 9)]);
     }, 4000);
     return () => clearInterval(interval);
@@ -157,32 +138,38 @@ function LiveFeed({ agents }: { agents: AgentUI[] }) {
       </div>
 
       <div style={{ maxHeight: "520px", overflowY: "auto" }}>
-        <AnimatePresence initial={false}>
-          {events.map((event) => (
-            <motion.div key={event.id}
-              initial={{ opacity: 0, x: 16, height: 0 }}
-              animate={{ opacity: 1, x: 0, height: "auto" }}
-              exit={{ opacity: 0, height: 0 }}
-              transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-              style={{ borderBottom: `1px solid ${T.border.subtle}`, borderLeft: `2px solid ${event.color}`, overflow: "hidden" }}
-            >
-              <div style={{ padding: "10px 14px" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "3px" }}>
-                  <span style={{ fontSize: "9px", fontFamily: "monospace", letterSpacing: "0.1em", color: event.color, fontWeight: 700 }}>
-                    {event.type.replace("_", " ")}
-                  </span>
-                  <span style={{ fontSize: "9px", fontFamily: "monospace", color: T.text.disabled }}>{event.time}</span>
-                </div>
-                <div style={{ fontSize: "12px", color: T.text.secondary, fontWeight: 600 }}>{event.agent}</div>
-                {event.score > 0 && (
-                  <div style={{ fontSize: "10px", fontFamily: "monospace", color: T.text.muted, marginTop: "2px", opacity: 0.8 }}>
-                    quality: {event.score}/100
+        {events.length === 0 ? (
+          <div style={{ padding: "32px 16px", textAlign: "center", fontSize: "10px", color: T.text.disabled, fontFamily: "monospace", letterSpacing: "0.1em" }}>
+            WAITING FOR ACTIVITY...
+          </div>
+        ) : (
+          <AnimatePresence initial={false}>
+            {events.map((event) => (
+              <motion.div key={event.id}
+                initial={{ opacity: 0, x: 16, height: 0 }}
+                animate={{ opacity: 1, x: 0, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+                style={{ borderBottom: `1px solid ${T.border.subtle}`, borderLeft: `2px solid ${event.color}`, overflow: "hidden" }}
+              >
+                <div style={{ padding: "10px 14px" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "3px" }}>
+                    <span style={{ fontSize: "9px", fontFamily: "monospace", letterSpacing: "0.1em", color: event.color, fontWeight: 700 }}>
+                      {event.type.replace("_", " ")}
+                    </span>
+                    <span style={{ fontSize: "9px", fontFamily: "monospace", color: T.text.disabled }}>{event.time}</span>
                   </div>
-                )}
-              </div>
-            </motion.div>
-          ))}
-        </AnimatePresence>
+                  <div style={{ fontSize: "12px", color: T.text.secondary, fontWeight: 600 }}>{event.agent}</div>
+                  {event.score > 0 && (
+                    <div style={{ fontSize: "10px", fontFamily: "monospace", color: T.text.muted, marginTop: "2px", opacity: 0.8 }}>
+                      quality: {event.score}/100
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            ))}
+          </AnimatePresence>
+        )}
       </div>
     </div>
   );
@@ -243,7 +230,9 @@ function HireModal({ agent, onClose, onSuccess }: { agent: AgentUI; onClose: () 
         <select value={jobType} onChange={(e) => setJobType(e.target.value)}
           style={{ width: "100%", padding: "12px 14px", background: "#0d0d0d", border: `1px solid ${T.border.default}`, color: T.text.primary, fontSize: "14px", fontFamily: "var(--font-space), sans-serif", boxSizing: "border-box", marginBottom: "24px" }}
         >
-          {agent.skills.map((s) => <option key={s} value={s} style={{ background: "#111" }}>{s}</option>)}
+          {(agent.skills.length > 0 ? agent.skills : ["general"]).map((s) => (
+            <option key={s} value={s} style={{ background: "#111" }}>{s}</option>
+          ))}
         </select>
 
         <div style={{ padding: "16px", marginBottom: "28px", background: "#0d0d0d", borderLeft: `3px solid ${T.text.accent}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -318,17 +307,19 @@ function AgentCard({ agent, index, onHire, canHire }: { agent: AgentUI; index: n
         <p style={{ fontSize: "11px", color: T.text.muted, fontFamily: "monospace", marginBottom: "16px", opacity: 0.5 }}>{agent.owner}</p>
 
         <div style={{ display: "flex", flexWrap: "wrap", gap: "5px", marginBottom: "18px" }}>
-          {agent.skills.map((skill) => (
+          {agent.skills.length > 0 ? agent.skills.map((skill) => (
             <span key={skill} style={{ fontSize: "10px", padding: "3px 8px", background: "rgba(110,231,183,0.05)", border: "1px solid rgba(110,231,183,0.1)", color: T.text.muted, fontFamily: "monospace", letterSpacing: "0.08em" }}>
               {skill}
             </span>
-          ))}
+          )) : (
+            <span style={{ fontSize: "10px", color: T.text.disabled, fontFamily: "monospace" }}>no skills listed</span>
+          )}
         </div>
 
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "1px", background: T.border.default, marginBottom: "14px" }}>
           {[
             { label: "PRICE", value: agent.priceDisplay, color: T.text.accent },
-            { label: "SCORE", value: String(agent.reputation), color: repColor },
+            { label: "SCORE", value: agent.reputation > 0 ? String(agent.reputation) : "—", color: repColor },
             { label: "JOBS",  value: String(agent.totalJobs), color: T.text.secondary },
           ].map((s) => (
             <div key={s.label} style={{ padding: "10px 12px", background: T.bg.card }}>
@@ -461,10 +452,16 @@ function HomeContent({ tab, setTab, hireAgent, setHireAgent, isConnected, useRea
   const [isLoading, setIsLoading] = useState(true);
   useEffect(() => { const t = setTimeout(() => setIsLoading(false), 900); return () => clearTimeout(t); }, []);
 
-  const { data: agentCountRaw } = useReadContract({ address: REGISTRY_ADDRESS as `0x${string}`, abi: AGENT_REGISTRY_ABI, functionName: "agentCount", query: { enabled: useRealData } });
+  const { data: agentCountRaw } = useReadContract({
+    address: REGISTRY_ADDRESS as `0x${string}`, abi: AGENT_REGISTRY_ABI,
+    functionName: "agentCount", query: { enabled: useRealData },
+  });
   const agentCount = agentCountRaw ? Number(agentCountRaw) : 0;
 
-  const { data: jobCountRaw } = useReadContract({ address: ESCROW_ADDRESS as `0x${string}`, abi: JOB_ESCROW_ABI, functionName: "jobCount", query: { enabled: useRealData } });
+  const { data: jobCountRaw } = useReadContract({
+    address: ESCROW_ADDRESS as `0x${string}`, abi: JOB_ESCROW_ABI,
+    functionName: "jobCount", query: { enabled: useRealData },
+  });
   const jobCount = jobCountRaw ? Number(jobCountRaw) : 0;
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -494,59 +491,80 @@ function HomeContent({ tab, setTab, hireAgent, setHireAgent, isConnected, useRea
   const { data: jobBatchData } = useReadContracts({ contracts: jobBatchContracts as any, query: { enabled: jobBatchContracts.length > 0 } });
 
   const agents: AgentUI[] = useMemo(() => {
-    if (!useRealData || !agentBatchData || agentBatchData.length === 0) return MOCK_AGENTS;
+    // ── NO FALLBACK TO MOCK — return empty array if no real data ──
+    if (!useRealData || !agentBatchData || agentBatchData.length === 0) return [];
     const result: AgentUI[] = [];
     for (let i = 0; i < Math.min(agentCount, 20); i++) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const agentRaw = agentBatchData[i * 2]?.result as any;
       const skillsRaw = agentBatchData[i * 2 + 1]?.result as string[] | undefined;
       if (!agentRaw) continue;
-      // wagmi returns struct as tuple — access by index:
-      // [0]=owner [1]=name [2]=skills [3]=endpoint [4]=metadataURI
-      // [5]=isActive [6]=priceUSDCents [7]=reputationTotal [8]=totalFeedback
-      // [9]=stakeAmount [10]=totalJobs [11]=activeJobs
-      const repScore = agentRaw[8] && agentRaw[8] > 0n && agentRaw[7]
-        ? Number(agentRaw[7]) / Number(agentRaw[8])
-        : 0;
+
+      // ── AgentRegistry.agents() tuple index map (from ABI) ──
+      // [0] owner           address
+      // [1] name            string
+      // [2] endpoint        string
+      // [3] metadataURI     string
+      // [4] isActive        bool
+      // [5] priceUSDCents   uint256
+      // [6] reputationTotal uint256
+      // [7] totalFeedback   uint256
+      // [8] stakeAmount     uint256
+      // [9] totalJobs       uint256
+      // [10] activeJobs     uint256
+      const reputationTotal = agentRaw[6] ? Number(agentRaw[6]) : 0;
+      const totalFeedback   = agentRaw[7] ? Number(agentRaw[7]) : 0;
+      const repScore = totalFeedback > 0 ? reputationTotal / totalFeedback : 0;
+
       result.push({
         id: i,
-        name: agentRaw[1] ?? `Agent #${i}`,
-        skills: skillsRaw ?? [],
-        priceDisplay: agentRaw[6] ? `$${(Number(agentRaw[6]) / 100).toFixed(2)}` : "$0.00",
-        reputation: Math.round(repScore),
-        totalJobs: agentRaw[10] ? Number(agentRaw[10]) : 0,
-        isActive: agentRaw[5] ?? false,
-        owner: shortAddr(agentRaw[0]),
+        name:         agentRaw[1] ?? `Agent #${i}`,
+        skills:       skillsRaw ?? [],
+        priceDisplay: agentRaw[5] ? `$${(Number(agentRaw[5]) / 100).toFixed(2)}` : "$0.00",
+        reputation:   Math.round(repScore),
+        totalJobs:    agentRaw[9] ? Number(agentRaw[9]) : 0,
+        isActive:     agentRaw[4] ?? false,
+        owner:        shortAddr(agentRaw[0]),
       });
     }
-    return result ;
+    return result;
   }, [useRealData, agentBatchData, agentCount]);
 
   const jobs: JobUI[] = useMemo(() => {
-    if (!useRealData || !jobBatchData || jobBatchData.length === 0) return MOCK_JOBS;
+    // ── NO FALLBACK TO MOCK — return empty array if no real data ──
+    if (!useRealData || !jobBatchData || jobBatchData.length === 0) return [];
     const result: JobUI[] = [];
     for (let i = 0; i < Math.min(jobCount, 20); i++) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const jobRaw = jobBatchData[i]?.result as any;
       if (!jobRaw) continue;
-      // wagmi returns struct as tuple — use named fields with index fallback
-      const desc = jobRaw.jobDescription ?? jobRaw.description ?? jobRaw[2] ?? "";
-      const payment = jobRaw.payment ?? jobRaw[4] ?? 0n;
-      const paymentToken = jobRaw.paymentToken ?? jobRaw[5] ?? 0;
-      const status = jobRaw.status ?? jobRaw[6] ?? 0;
-      const agentId = jobRaw.registryAgentId ?? jobRaw.agentId ?? jobRaw[1] ?? 0;
-      const qualityScore = jobRaw.qualityScore ?? jobRaw[9] ?? 0;
+
+      // ── JobEscrow.jobs() tuple index map (from ABI) ──
+      // [0]  id                    uint256
+      // [1]  client                address
+      // [2]  provider              address
+      // [3]  registryAgentId       uint256
+      // [4]  payment               uint256
+      // [5]  paymentToken          uint8
+      // [6]  resultData            string
+      // [7]  description           string
+      // [8]  jobType               string
+      // [9]  status                uint8
+      // [10] verificationRequestId bytes32
+      // [11] deadline              uint256
+      // [12] createdAt             uint256
+      // [13] qualityScore          uint8
       result.push({
-        id: i,
-        description: desc,
-        payment: formatEther(payment as bigint),
-        paymentToken: paymentToken === 0 ? "ETH" : "USDC",
-        status: Number(status),
-        agentId: Number(agentId),
-        qualityScore: Number(qualityScore),
+        id:           i,
+        description:  jobRaw[7]  ?? "",
+        payment:      formatEther((jobRaw[4] as bigint) ?? 0n),
+        paymentToken: Number(jobRaw[5]) === 0 ? "ETH" : "USDC",
+        status:       Number(jobRaw[9]),
+        agentId:      Number(jobRaw[3]),
+        qualityScore: Number(jobRaw[13]),
       });
     }
-    return result ;
+    return result;
   }, [useRealData, jobBatchData, jobCount]);
 
   const completedJobs  = jobs.filter((j) => j.status === 3).length;
@@ -558,7 +576,7 @@ function HomeContent({ tab, setTab, hireAgent, setHireAgent, isConnected, useRea
     <div style={{ minHeight: "100vh", background: "transparent", fontFamily: "var(--font-space), sans-serif", color: T.text.primary, position: "relative" }}>
       <div style={{ position: "relative", zIndex: 1 }}>
 
-        {/* DEMO BANNER */}
+        {/* STATUS BANNER */}
         {!useRealData && (
           <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
             style={{ padding: "8px 48px", background: "rgba(251,191,36,0.03)", borderBottom: "1px solid rgba(251,191,36,0.08)", display: "flex", alignItems: "center", gap: "10px" }}
@@ -567,7 +585,7 @@ function HomeContent({ tab, setTab, hireAgent, setHireAgent, isConnected, useRea
               style={{ width: "4px", height: "4px", background: "#fbbf24" }}
             />
             <span style={{ fontSize: "10px", color: "#fbbf24", fontFamily: "monospace", letterSpacing: "0.15em" }}>
-              {!isConnected ? "DEMO MODE — CONNECT WALLET FOR LIVE DATA" : "SET CONTRACT ADDRESSES IN .ENV.LOCAL"}
+              {!isConnected ? "CONNECT WALLET TO VIEW LIVE DATA" : "SET CONTRACT ADDRESSES IN .ENV.LOCAL"}
             </span>
           </motion.div>
         )}
@@ -604,6 +622,14 @@ function HomeContent({ tab, setTab, hireAgent, setHireAgent, isConnected, useRea
                 >
                   {isLoading
                     ? Array.from({ length: 4 }).map((_, i) => <SkeletonCard key={i} />)
+                    : agents.length === 0
+                    ? (
+                      <div style={{ gridColumn: "1 / -1", padding: "80px", textAlign: "center", background: T.bg.card }}>
+                        <div style={{ fontSize: "12px", color: T.text.disabled, fontFamily: "monospace", letterSpacing: "0.1em" }}>
+                          {useRealData ? "NO AGENTS REGISTERED ON-CHAIN" : "CONNECT WALLET TO VIEW AGENTS"}
+                        </div>
+                      </div>
+                    )
                     : agents.map((agent, i) => (
                         <AgentCard key={agent.id} agent={agent} index={i} canHire={isConnected} onHire={() => setHireAgent(agent)} />
                       ))
@@ -620,7 +646,7 @@ function HomeContent({ tab, setTab, hireAgent, setHireAgent, isConnected, useRea
                   </div>
                   {jobs.length === 0 ? (
                     <div style={{ padding: "60px", textAlign: "center", color: T.text.disabled, fontSize: "12px", fontFamily: "monospace", letterSpacing: "0.1em" }}>
-                      NO JOBS YET — HIRE AN AGENT TO GET STARTED
+                      {useRealData ? "NO JOBS ON-CHAIN — HIRE AN AGENT TO GET STARTED" : "CONNECT WALLET TO VIEW JOBS"}
                     </div>
                   ) : (
                     jobs.map((job, i) => <JobRow key={job.id} job={job} index={i} agents={agents} />)
@@ -646,7 +672,7 @@ function HomeContent({ tab, setTab, hireAgent, setHireAgent, isConnected, useRea
               style={{ width: "4px", height: "4px", background: useRealData ? T.text.accent : "#fbbf24", boxShadow: `0 0 6px ${useRealData ? T.text.accent : "#fbbf24"}` }}
             />
             <span style={{ fontSize: "10px", color: useRealData ? T.text.accent : "#fbbf24", fontFamily: "monospace", letterSpacing: "0.2em" }}>
-              {useRealData ? "LIVE" : "DEMO"}
+              {useRealData ? "LIVE" : "NO WALLET"}
             </span>
           </div>
         </footer>
