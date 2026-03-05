@@ -519,7 +519,7 @@ function HomeContent({ tab, setTab, hireAgent, setHireAgent, isConnected, useRea
         owner: shortAddr(agentRaw[0]),
       });
     }
-    return result.length > 0 ? result : MOCK_AGENTS;
+    return result ;
   }, [useRealData, agentBatchData, agentCount]);
 
   const jobs: JobUI[] = useMemo(() => {
@@ -546,7 +546,7 @@ function HomeContent({ tab, setTab, hireAgent, setHireAgent, isConnected, useRea
         qualityScore: Number(qualityScore),
       });
     }
-    return result.length > 0 ? result : MOCK_JOBS;
+    return result ;
   }, [useRealData, jobBatchData, jobCount]);
 
   const completedJobs  = jobs.filter((j) => j.status === 3).length;
