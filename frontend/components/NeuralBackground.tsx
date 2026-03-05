@@ -14,8 +14,19 @@ type SphereParticle = {
   vx: number; vy: number;
   radius: number; opacity: number;
   phase: number;
+
+  // ── BARU: Random Walk state ──────────────────
+  driftVx: number;   // arah drift acak saat ini
+  driftVy: number;
+  driftX: number;    // akumulasi offset drift dari ox/oy
+  driftY: number;
+
+  // ── BARU: Spontaneous Firing state ──────────
+  fireT: number;     // timer nyala (0 = mati, >0 = sedang firing)
+  fireMax: number;   // durasi firing (berbeda tiap node)
 };
 
+// ── Konstanta lama (tidak diubah) ─────────────
 const WANDER_COUNT     = 70;
 const WANDER_SPEED     = 0.4;
 const WANDER_CONN_DIST = 180;
@@ -35,6 +46,17 @@ const MOUSE_STRENGTH   = 3.0;
 
 const DOT_COLOR  = "110, 231, 183";
 const LINE_COLOR = "74, 222, 128";
+
+// ── Konstanta BARU ────────────────────────────
+const DRIFT_SPEED     = 0.18;   // kecepatan random walk tiap frame
+const DRIFT_CHANGE    = 0.018;  // seberapa sering arah drift berubah (0–1)
+const DRIFT_MAX_DIST  = 28;     // jarak maksimum drift dari posisi orbit
+
+const FIRE_CHANCE     = 0.0008; // peluang per node per frame untuk mulai firing
+const FIRE_DURATION   = 38;     // durasi firing dalam frame (~0.6 detik di 60fps)
+const FIRE_RADIUS_ADD = 2.2;    // tambahan radius saat firing
+const FIRE_GLOW       = 18;     // shadowBlur saat firing
+const FIRE_OPACITY    = 0.95;   // opacity max saat firing
 
 function randomSpherePoint(cx: number, cy: number, r: number) {
   const theta = Math.random() * Math.PI * 2;
@@ -85,6 +107,17 @@ export default function NeuralBackground() {
           radius:  Math.random() * 2 + 0.8,
           opacity: Math.random() * 0.9 + 0.4,
           phase:   Math.random() * Math.PI * 2,
+
+          // ── BARU: Random Walk ────────────────
+          // Setiap node mulai dengan arah drift acak yang berbeda
+          driftVx: (Math.random() - 0.5) * DRIFT_SPEED,
+          driftVy: (Math.random() - 0.5) * DRIFT_SPEED,
+          driftX:  0,
+          driftY:  0,
+
+          // ── BARU: Spontaneous Firing ─────────
+          fireT:   0,
+          fireMax: FIRE_DURATION * (0.7 + Math.random() * 0.6),
         };
       });
     };
@@ -103,7 +136,7 @@ export default function NeuralBackground() {
       const mx = mouse.current.x;
       const my = mouse.current.y;
 
-      // ── LAYER 1: Wanderers ──────────────────────────────────
+      // ── LAYER 1: Wanderers (tidak diubah) ──────────────────
       const wp = wanderers.current;
       for (const p of wp) {
         p.x += p.vx; p.y += p.vy;
@@ -134,8 +167,8 @@ export default function NeuralBackground() {
 
       // ── LAYER 2: Sphere cluster ─────────────────────────────
       const sp = spherePts.current;
+
       for (const p of sp) {
-        // Auto rotation — putar origin point mengelilingi center
         const cx = canvas.width  / 2;
         const cy = canvas.height / 2;
         const angle = tick.current * ROTATE_SPEED;
@@ -146,20 +179,50 @@ export default function NeuralBackground() {
         const rotX  = cx + dx0 * cosA - dy0 * sinA;
         const rotY  = cy + dx0 * sinA + dy0 * cosA;
 
-        // Float on top of rotation
-        // Setiap partikel bergerak acak dengan 2 frekuensi berbeda
         const floatX = Math.sin(tick.current * FLOAT_SPEED * 1.3 + p.phase) * FLOAT_AMPLITUDE
                      + Math.sin(tick.current * FLOAT_SPEED * 0.7 + p.phase * 2.1) * FLOAT_AMPLITUDE * 0.5;
         const floatY = Math.cos(tick.current * FLOAT_SPEED * 0.9 + p.phase) * FLOAT_AMPLITUDE * 0.6
                      + Math.cos(tick.current * FLOAT_SPEED * 1.6 + p.phase * 1.7) * FLOAT_AMPLITUDE * 0.35;
 
-        // Tarik kembali ke origin sphere agar tetap dalam cluster
-        const distToOrigin = Math.sqrt((p.x - p.ox) ** 2 + (p.y - p.oy) ** 2);
+        // ── BARU: Random Walk ──────────────────────────────────
+        // Secara acak ubah arah drift (Brownian direction change)
+        if (Math.random() < DRIFT_CHANGE) {
+          p.driftVx += (Math.random() - 0.5) * DRIFT_SPEED * 0.6;
+          p.driftVy += (Math.random() - 0.5) * DRIFT_SPEED * 0.6;
+
+          // Clamp kecepatan drift agar tidak lari terlalu cepat
+          const dSpeed = Math.sqrt(p.driftVx ** 2 + p.driftVy ** 2);
+          if (dSpeed > DRIFT_SPEED) {
+            p.driftVx = (p.driftVx / dSpeed) * DRIFT_SPEED;
+            p.driftVy = (p.driftVy / dSpeed) * DRIFT_SPEED;
+          }
+        }
+
+        // Akumulasi offset drift
+        p.driftX += p.driftVx;
+        p.driftY += p.driftVy;
+
+        // Soft boundary: jika drift terlalu jauh, tarik balik perlahan
+        const driftDist = Math.sqrt(p.driftX ** 2 + p.driftY ** 2);
+        if (driftDist > DRIFT_MAX_DIST) {
+          p.driftX *= 0.94;
+          p.driftY *= 0.94;
+          p.driftVx *= 0.85;
+          p.driftVy *= 0.85;
+        }
+        // ── END Random Walk ────────────────────────────────────
+
+        // Target posisi = rotasi + float (sinusoidal) + drift (random walk)
+        const targetX = rotX + floatX + p.driftX;
+        const targetY = rotY + floatY + p.driftY;
+
+        const distToOrigin = Math.sqrt((p.x - targetX) ** 2 + (p.y - targetY) ** 2);
         const pullStrength = distToOrigin > 60 ? RETURN_STRENGTH * 2.5 : RETURN_STRENGTH;
 
-        p.vx += (p.ox + floatX - p.x) * pullStrength;
-        p.vy += (p.oy + floatY - p.y) * pullStrength;
+        p.vx += (targetX - p.x) * pullStrength;
+        p.vy += (targetY - p.y) * pullStrength;
 
+        // Mouse repulsion (tidak diubah)
         const dxm = p.x - mx;
         const dym = p.y - my;
         const dm  = Math.sqrt(dxm * dxm + dym * dym);
@@ -168,9 +231,23 @@ export default function NeuralBackground() {
           p.vx += (dxm / dm) * f;
           p.vy += (dym / dm) * f;
         }
+
         p.vx *= DAMPING; p.vy *= DAMPING;
         p.x  += p.vx;   p.y  += p.vy;
+
+        // ── BARU: Spontaneous Firing ───────────────────────────
+        if (p.fireT <= 0) {
+          // peluang kecil setiap frame untuk mulai firing
+          if (Math.random() < FIRE_CHANCE) {
+            p.fireT = p.fireMax;
+          }
+        } else {
+          p.fireT -= 1;
+        }
+        // ── END Spontaneous Firing ─────────────────────────────
       }
+
+      // Gambar garis sinaps (tidak diubah, kecuali tambah boost dari firing)
       for (let i = 0; i < sp.length; i++) {
         for (let j = i + 1; j < sp.length; j++) {
           const dx   = sp[i].x - sp[j].x;
@@ -181,10 +258,28 @@ export default function NeuralBackground() {
             const midY = (sp[i].y + sp[j].y) / 2;
             const dm   = Math.sqrt((midX - mx) ** 2 + (midY - my) ** 2);
             const boost = dm < MOUSE_RADIUS ? (1 - dm / MOUSE_RADIUS) * 0.45 : 0;
+
+            // ── BARU: garis ikut menyala jika salah satu ujungnya firing
+            const isFiring = sp[i].fireT > 0 || sp[j].fireT > 0;
+            const fireProgress = Math.max(
+              sp[i].fireT / sp[i].fireMax,
+              sp[j].fireT / sp[j].fireMax
+            );
+            const fireBrightness = isFiring
+              ? Math.sin(fireProgress * Math.PI) * 0.5  // smooth pulse arc
+              : 0;
+
+            const lineAlpha = (1 - dist / SPHERE_CONN_DIST) * (0.65 + boost + fireBrightness);
+
             ctx.beginPath();
-            ctx.strokeStyle = `rgba(${LINE_COLOR}, ${(1 - dist / SPHERE_CONN_DIST) * (0.65 + boost)})`;
-            ctx.lineWidth = boost > 0.1 ? 1.0 : 0.5;
-            if (boost > 0.15) { ctx.shadowBlur = 5; ctx.shadowColor = `rgba(${LINE_COLOR}, 0.35)`; }
+            ctx.strokeStyle = `rgba(${LINE_COLOR}, ${lineAlpha})`;
+            ctx.lineWidth   = boost > 0.1 || isFiring ? 1.0 : 0.5;
+
+            if (boost > 0.15 || isFiring) {
+              ctx.shadowBlur  = isFiring ? 8 : 5;
+              ctx.shadowColor = `rgba(${LINE_COLOR}, ${isFiring ? 0.55 : 0.35})`;
+            }
+
             ctx.moveTo(sp[i].x, sp[i].y);
             ctx.lineTo(sp[j].x, sp[j].y);
             ctx.stroke();
@@ -192,13 +287,34 @@ export default function NeuralBackground() {
           }
         }
       }
+
+      // Gambar titik neuron
       for (const p of sp) {
         const dm   = Math.sqrt((p.x - mx) ** 2 + (p.y - my) ** 2);
         const glow = dm < MOUSE_RADIUS ? (1 - dm / MOUSE_RADIUS) : 0;
-        if (glow > 0.1) { ctx.shadowBlur = 10 * glow; ctx.shadowColor = `rgba(${DOT_COLOR}, ${glow * 0.7})`; }
+
+        // ── BARU: hitung boost visual dari firing
+        const isFiring     = p.fireT > 0;
+        const fireProgress = isFiring ? p.fireT / p.fireMax : 0;
+        // smooth bell curve: menyala naik lalu turun
+        const firePulse    = isFiring ? Math.sin(fireProgress * Math.PI) : 0;
+
+        const finalRadius  = p.radius + glow * 1.2 + firePulse * FIRE_RADIUS_ADD;
+        const finalOpacity = Math.min(p.opacity + glow * 0.25 + firePulse * (FIRE_OPACITY - p.opacity), 1);
+        const finalGlow    = glow > 0.1
+          ? 10 * glow
+          : isFiring
+            ? FIRE_GLOW * firePulse
+            : 0;
+
+        if (finalGlow > 0) {
+          ctx.shadowBlur  = finalGlow;
+          ctx.shadowColor = `rgba(${DOT_COLOR}, ${isFiring ? firePulse * 0.9 : glow * 0.7})`;
+        }
+
         ctx.beginPath();
-        ctx.arc(p.x, p.y, p.radius + glow * 1.2, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(${DOT_COLOR}, ${p.opacity + glow * 0.25})`;
+        ctx.arc(p.x, p.y, finalRadius, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(${DOT_COLOR}, ${finalOpacity})`;
         ctx.fill();
         ctx.shadowBlur = 0;
       }
