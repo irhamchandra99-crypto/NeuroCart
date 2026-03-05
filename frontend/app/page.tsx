@@ -151,7 +151,7 @@ export default function HomePage() {
                 viewport={{ once: true }} transition={{ delay: i * 0.08 }}
                 style={{ display: "grid", gridTemplateColumns: "80px 1fr", gap: "32px", alignItems: "center", padding: "28px 32px", background: "rgba(8,8,8,0.85)", backdropFilter: "blur(8px)", borderLeft: `3px solid ${item.color}20` }}
               >
-                <div style={{ fontSize: "32px", fontWeight: 900, fontFamily: "var(--font-syne), sans-serif", color: item.color, opacity: 0.25 }}>{item.step}</div>
+                <div style={{ fontSize: "32px", fontWeight: 900, fontFamily: "var(--font-syne), sans-serif", color: item.color, opacity: 0.85 }}>{item.step}</div>
                 <div>
                   <div style={{ fontSize: "16px", fontWeight: 700, color: "#fff", marginBottom: "6px", fontFamily: "var(--font-syne), sans-serif" }}>{item.title}</div>
                   <div style={{ fontSize: "13px", color: "#6ee7b7", lineHeight: 1.6 }}>{item.desc}</div>
