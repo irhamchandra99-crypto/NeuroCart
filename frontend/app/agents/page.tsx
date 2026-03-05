@@ -346,8 +346,8 @@ function AgentsContent({ useRealData, selectedAgent, setSelectedAgent, filters, 
       const rep = raw.totalFeedback > 0n ? Math.round(Number(raw.reputationTotal) / Number(raw.totalFeedback)) : 0;
       result.push({
         id: i, name: raw.name, skills: skillsRaw ?? [],
-        priceDisplay: `$${(Number(raw.priceUSDCents) / 100).toFixed(2)}`,
-        priceUSDCents: Number(raw.priceUSDCents), reputation: rep,
+        priceDisplay: raw.priceUSDCents ? `$${(Number(raw.priceUSDCents) / 100).toFixed(2)}` : "$0.00",
+        priceUSDCents: raw.priceUSDCents ? Number(raw.priceUSDCents) : 0, reputation: rep,
         totalJobs: Number(raw.totalJobs), activeJobs: Number(raw.activeJobs ?? 0),
         isActive: raw.isActive,
         owner: raw.owner && typeof raw.owner === "string" && raw.owner.length >= 10
