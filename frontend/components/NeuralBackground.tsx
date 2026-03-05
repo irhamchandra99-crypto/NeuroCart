@@ -2,45 +2,56 @@
 
 import { useEffect, useRef } from "react";
 
-type Particle = {
+type WanderParticle = {
   x: number; y: number;
-  ox: number; oy: number; // origin (resting position on sphere)
   vx: number; vy: number;
-  radius: number;
-  opacity: number;
-  phase: number; // for floating offset
+  radius: number; opacity: number;
 };
 
-const PARTICLE_COUNT   = 140;
-const CONNECTION_DIST  = 140;
-const DOT_COLOR        = "110, 231, 183";
-const LINE_COLOR       = "74, 222, 128";
-const DOT_OPACITY_MAX  = 0.85;
-const LINE_OPACITY_MAX = 0.22;
-const SPHERE_RADIUS    = 0.42; // fraction of min(width, height)
-const FLOAT_SPEED      = 0.0008;
-const FLOAT_AMPLITUDE  = 18;
-const RETURN_STRENGTH  = 0.035;
-const MOUSE_RADIUS     = 120;
-const MOUSE_STRENGTH   = 2.8;
-const DAMPING          = 0.82;
+type SphereParticle = {
+  x: number; y: number;
+  ox: number; oy: number;
+  vx: number; vy: number;
+  radius: number; opacity: number;
+  phase: number;
+};
 
-function onSphere(cx: number, cy: number, r: number): { x: number; y: number } {
-  // Distribute points on a 2D projection of a sphere using fibonacci spiral
+const WANDER_COUNT     = 70;
+const WANDER_SPEED     = 0.4;
+const WANDER_CONN_DIST = 180;
+const WANDER_LINE_MAX  = 0.25;
+const WANDER_DOT_MAX   = 0.9;
+
+const SPHERE_COUNT     = 100;
+const SPHERE_CONN_DIST = 130;
+const SPHERE_RADIUS    = 0.40;
+const FLOAT_AMPLITUDE  = 16;
+const FLOAT_SPEED      = 0.0007;
+const ROTATE_SPEED     = 0.0018;
+const RETURN_STRENGTH  = 0.032;
+const DAMPING          = 0.80;
+const MOUSE_RADIUS     = 130;
+const MOUSE_STRENGTH   = 3.0;
+
+const DOT_COLOR  = "110, 231, 183";
+const LINE_COLOR = "74, 222, 128";
+
+function randomSpherePoint(cx: number, cy: number, r: number) {
   const theta = Math.random() * Math.PI * 2;
   const phi   = Math.acos(2 * Math.random() - 1);
   return {
     x: cx + r * Math.sin(phi) * Math.cos(theta),
-    y: cy + r * Math.sin(phi) * Math.sin(theta) * 0.55, // flatten Y for perspective
+    y: cy + r * Math.sin(phi) * Math.sin(theta) * 0.52,
   };
 }
 
 export default function NeuralBackground() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const particles = useRef<Particle[]>([]);
+  const wanderers = useRef<WanderParticle[]>([]);
+  const spherePts = useRef<SphereParticle[]>([]);
   const mouse     = useRef({ x: -9999, y: -9999 });
   const rafId     = useRef<number | null>(null);
-  const t         = useRef(0);
+  const tick      = useRef(0);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -48,143 +59,138 @@ export default function NeuralBackground() {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    const resize = () => {
+    const init = () => {
       canvas.width  = window.innerWidth;
       canvas.height = window.innerHeight;
-      initParticles();
-      // Tambah wandering particles di seluruh screen
-const WANDER_COUNT = 35;
-const wanderers = Array.from({ length: WANDER_COUNT }, () => ({
-  x:  Math.random() * canvas.width,
-  y:  Math.random() * canvas.height,
-  ox: Math.random() * canvas.width,
-  oy: Math.random() * canvas.height,
-  vx: (Math.random() - 0.5) * 0.3,
-  vy: (Math.random() - 0.5) * 0.3,
-  radius:  Math.random() * 1.2 + 0.4,
-  opacity: Math.random() * 0.25 + 0.05,
-  phase:   Math.random() * Math.PI * 2,
-}));
-particles.current = [...particles.current, ...wanderers];
-    };
 
-    const initParticles = () => {
+      wanderers.current = Array.from({ length: WANDER_COUNT }, () => ({
+        x:       Math.random() * canvas.width,
+        y:       Math.random() * canvas.height,
+        vx:      (Math.random() - 0.5) * WANDER_SPEED,
+        vy:      (Math.random() - 0.5) * WANDER_SPEED,
+        radius:  Math.random() * 3 + 1.5,
+        opacity: Math.random() * WANDER_DOT_MAX + 0.1,
+      }));
+
       const cx = canvas.width  / 2;
       const cy = canvas.height / 2;
       const r  = Math.min(canvas.width, canvas.height) * SPHERE_RADIUS;
 
-      particles.current = Array.from({ length: PARTICLE_COUNT }, () => {
-        const pos = onSphere(cx, cy, r);
+      spherePts.current = Array.from({ length: SPHERE_COUNT }, () => {
+        const pos = randomSpherePoint(cx, cy, r);
         return {
           x: pos.x, y: pos.y,
           ox: pos.x, oy: pos.y,
           vx: 0, vy: 0,
-          radius:  Math.random() * 2.2 + 1,
-          opacity: Math.random() * DOT_OPACITY_MAX + 0.15,
+          radius:  Math.random() * 2 + 0.8,
+          opacity: Math.random() * 0.75 + 0.2,
           phase:   Math.random() * Math.PI * 2,
         };
       });
     };
 
-    resize();
-    window.addEventListener("resize", resize);
+    init();
+    window.addEventListener("resize", init);
 
-    const onMouseMove = (e: MouseEvent) => {
-      mouse.current = { x: e.clientX, y: e.clientY };
-    };
-    const onMouseLeave = () => {
-      mouse.current = { x: -9999, y: -9999 };
-    };
-    window.addEventListener("mousemove", onMouseMove);
-    window.addEventListener("mouseleave", onMouseLeave);
+    const onMove  = (e: MouseEvent) => { mouse.current = { x: e.clientX, y: e.clientY }; };
+    const onLeave = () => { mouse.current = { x: -9999, y: -9999 }; };
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseleave", onLeave);
 
     const draw = () => {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      t.current += 1;
+      tick.current += 1;
+      const mx = mouse.current.x;
+      const my = mouse.current.y;
 
-      const pts = particles.current;
-      const mx  = mouse.current.x;
-      const my  = mouse.current.y;
-
-      // Update positions
-      for (const p of pts) {
-        // Floating motion around origin
-        const floatX = Math.sin(t.current * FLOAT_SPEED + p.phase) * FLOAT_AMPLITUDE;
-        const floatY = Math.cos(t.current * FLOAT_SPEED * 0.7 + p.phase) * FLOAT_AMPLITUDE * 0.5;
-        const targetX = p.ox + floatX;
-        const targetY = p.oy + floatY;
-
-        // Spring return to floating target
-        p.vx += (targetX - p.x) * RETURN_STRENGTH;
-        p.vy += (targetY - p.y) * RETURN_STRENGTH;
-
-        // Mouse repulsion
-        const dxm  = p.x - mx;
-        const dym  = p.y - my;
-        const distM = Math.sqrt(dxm * dxm + dym * dym);
-        if (distM < MOUSE_RADIUS && distM > 0) {
-          const force = (1 - distM / MOUSE_RADIUS) * MOUSE_STRENGTH;
-          p.vx += (dxm / distM) * force;
-          p.vy += (dym / distM) * force;
+      // ── LAYER 1: Wanderers ──────────────────────────────────
+      const wp = wanderers.current;
+      for (const p of wp) {
+        p.x += p.vx; p.y += p.vy;
+        if (p.x < 0 || p.x > canvas.width)  p.vx *= -1;
+        if (p.y < 0 || p.y > canvas.height) p.vy *= -1;
+      }
+      for (let i = 0; i < wp.length; i++) {
+        for (let j = i + 1; j < wp.length; j++) {
+          const dx = wp[i].x - wp[j].x;
+          const dy = wp[i].y - wp[j].y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < WANDER_CONN_DIST) {
+            ctx.beginPath();
+            ctx.strokeStyle = `rgba(${LINE_COLOR}, ${(1 - dist / WANDER_CONN_DIST) * WANDER_LINE_MAX})`;
+            ctx.lineWidth = 0.5;
+            ctx.moveTo(wp[i].x, wp[i].y);
+            ctx.lineTo(wp[j].x, wp[j].y);
+            ctx.stroke();
+          }
         }
-
-        p.vx *= DAMPING;
-        p.vy *= DAMPING;
-        p.x  += p.vx;
-        p.y  += p.vy;
+      }
+      for (const p of wp) {
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(${DOT_COLOR}, ${p.opacity})`;
+        ctx.fill();
       }
 
-      // Draw connections
-      for (let i = 0; i < pts.length; i++) {
-        for (let j = i + 1; j < pts.length; j++) {
-          const dx   = pts[i].x - pts[j].x;
-          const dy   = pts[i].y - pts[j].y;
+      // ── LAYER 2: Sphere cluster ─────────────────────────────
+      const sp = spherePts.current;
+      for (const p of sp) {
+        // Auto rotation — putar origin point mengelilingi center
+        const cx = canvas.width  / 2;
+        const cy = canvas.height / 2;
+        const angle = tick.current * ROTATE_SPEED;
+        const cosA  = Math.cos(angle);
+        const sinA  = Math.sin(angle);
+        const dx0   = p.ox - cx;
+        const dy0   = p.oy - cy;
+        const rotX  = cx + dx0 * cosA - dy0 * sinA;
+        const rotY  = cy + dx0 * sinA + dy0 * cosA;
+              
+        // Float on top of rotation
+        const floatX = Math.sin(tick.current * FLOAT_SPEED + p.phase) * FLOAT_AMPLITUDE;
+        const floatY = Math.cos(tick.current * FLOAT_SPEED * 0.65 + p.phase) * FLOAT_AMPLITUDE * 0.45;
+        p.vx += (rotX + floatX - p.x) * RETURN_STRENGTH;
+        p.vy += (rotY + floatY - p.y) * RETURN_STRENGTH;
+
+        const dxm = p.x - mx;
+        const dym = p.y - my;
+        const dm  = Math.sqrt(dxm * dxm + dym * dym);
+        if (dm < MOUSE_RADIUS && dm > 0) {
+          const f = (1 - dm / MOUSE_RADIUS) * MOUSE_STRENGTH;
+          p.vx += (dxm / dm) * f;
+          p.vy += (dym / dm) * f;
+        }
+        p.vx *= DAMPING; p.vy *= DAMPING;
+        p.x  += p.vx;   p.y  += p.vy;
+      }
+      for (let i = 0; i < sp.length; i++) {
+        for (let j = i + 1; j < sp.length; j++) {
+          const dx   = sp[i].x - sp[j].x;
+          const dy   = sp[i].y - sp[j].y;
           const dist = Math.sqrt(dx * dx + dy * dy);
-
-          if (dist < CONNECTION_DIST) {
-            // Check if mouse is near this line midpoint
-            const midX = (pts[i].x + pts[j].x) / 2;
-            const midY = (pts[i].y + pts[j].y) / 2;
-            const dmx  = midX - mx;
-            const dmy  = midY - my;
-            const distMid = Math.sqrt(dmx * dmx + dmy * dmy);
-            const mouseBoost = distMid < MOUSE_RADIUS
-              ? (1 - distMid / MOUSE_RADIUS) * 0.5
-              : 0;
-
-            const alpha = (1 - dist / CONNECTION_DIST) * (LINE_OPACITY_MAX + mouseBoost);
-            const lw    = mouseBoost > 0.1 ? 1.2 : 0.5;
-
+          if (dist < SPHERE_CONN_DIST) {
+            const midX = (sp[i].x + sp[j].x) / 2;
+            const midY = (sp[i].y + sp[j].y) / 2;
+            const dm   = Math.sqrt((midX - mx) ** 2 + (midY - my) ** 2);
+            const boost = dm < MOUSE_RADIUS ? (1 - dm / MOUSE_RADIUS) * 0.45 : 0;
             ctx.beginPath();
-            ctx.strokeStyle = `rgba(${LINE_COLOR}, ${alpha})`;
-            ctx.lineWidth   = lw;
-            if (mouseBoost > 0.15) {
-              ctx.shadowBlur  = 6;
-              ctx.shadowColor = `rgba(${LINE_COLOR}, 0.4)`;
-            }
-            ctx.moveTo(pts[i].x, pts[i].y);
-            ctx.lineTo(pts[j].x, pts[j].y);
+            ctx.strokeStyle = `rgba(${LINE_COLOR}, ${(1 - dist / SPHERE_CONN_DIST) * (0.3 + boost)})`;
+            ctx.lineWidth = boost > 0.1 ? 1.0 : 0.5;
+            if (boost > 0.15) { ctx.shadowBlur = 5; ctx.shadowColor = `rgba(${LINE_COLOR}, 0.35)`; }
+            ctx.moveTo(sp[i].x, sp[i].y);
+            ctx.lineTo(sp[j].x, sp[j].y);
             ctx.stroke();
             ctx.shadowBlur = 0;
           }
         }
       }
-
-      // Draw particles
-      for (const p of pts) {
-        const dxm   = p.x - mx;
-        const dym   = p.y - my;
-        const distM = Math.sqrt(dxm * dxm + dym * dym);
-        const glow  = distM < MOUSE_RADIUS ? (1 - distM / MOUSE_RADIUS) : 0;
-
-        if (glow > 0.1) {
-          ctx.shadowBlur  = 12 * glow;
-          ctx.shadowColor = `rgba(${DOT_COLOR}, ${glow * 0.8})`;
-        }
-
+      for (const p of sp) {
+        const dm   = Math.sqrt((p.x - mx) ** 2 + (p.y - my) ** 2);
+        const glow = dm < MOUSE_RADIUS ? (1 - dm / MOUSE_RADIUS) : 0;
+        if (glow > 0.1) { ctx.shadowBlur = 10 * glow; ctx.shadowColor = `rgba(${DOT_COLOR}, ${glow * 0.7})`; }
         ctx.beginPath();
-        ctx.arc(p.x, p.y, p.radius + glow * 1.5, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(${DOT_COLOR}, ${p.opacity + glow * 0.3})`;
+        ctx.arc(p.x, p.y, p.radius + glow * 1.2, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(${DOT_COLOR}, ${p.opacity + glow * 0.25})`;
         ctx.fill();
         ctx.shadowBlur = 0;
       }
@@ -195,9 +201,9 @@ particles.current = [...particles.current, ...wanderers];
     rafId.current = requestAnimationFrame(draw);
 
     return () => {
-      window.removeEventListener("resize", resize);
-      window.removeEventListener("mousemove", onMouseMove);
-      window.removeEventListener("mouseleave", onMouseLeave);
+      window.removeEventListener("resize", init);
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseleave", onLeave);
       if (rafId.current) cancelAnimationFrame(rafId.current);
     };
   }, []);
@@ -205,13 +211,7 @@ particles.current = [...particles.current, ...wanderers];
   return (
     <canvas
       ref={canvasRef}
-      style={{
-        position:      "fixed",
-        inset:         0,
-        zIndex:        0,
-        pointerEvents: "none",
-        opacity:       1,
-      }}
+      style={{ position: "fixed", inset: 0, zIndex: 0, pointerEvents: "none", opacity: 1 }}
     />
   );
 }
