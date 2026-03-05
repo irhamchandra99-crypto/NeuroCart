@@ -19,7 +19,7 @@ type SphereParticle = {
 const WANDER_COUNT     = 70;
 const WANDER_SPEED     = 0.4;
 const WANDER_CONN_DIST = 180;
-const WANDER_LINE_MAX  = 0.25;
+const WANDER_LINE_MAX  = 0.55;
 const WANDER_DOT_MAX   = 0.9;
 
 const SPHERE_COUNT     = 100;
@@ -118,7 +118,7 @@ export default function NeuralBackground() {
           if (dist < WANDER_CONN_DIST) {
             ctx.beginPath();
             ctx.strokeStyle = `rgba(${LINE_COLOR}, ${(1 - dist / WANDER_CONN_DIST) * WANDER_LINE_MAX})`;
-            ctx.lineWidth = 0.5;
+            ctx.lineWidth = 1.2;
             ctx.moveTo(wp[i].x, wp[i].y);
             ctx.lineTo(wp[j].x, wp[j].y);
             ctx.stroke();
