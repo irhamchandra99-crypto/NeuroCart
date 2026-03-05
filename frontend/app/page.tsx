@@ -10,7 +10,7 @@ const TECH_BADGES = [
   { label: "CHAINLINK FUNCTIONS", color: "#375BD2" },
   { label: "DATA FEEDS",          color: "#375BD2" },
   { label: "AUTOMATION",          color: "#375BD2" },
-  { label: "ARBITRUM SEPOLIA",    color: "#e879f9" },
+  { label: "BASE SEPOLIA",    color: "#e879f9" },
 ];
 
 const STATS = [
@@ -279,7 +279,7 @@ export default function HomePage() {
       </section>
 
       <footer style={{ borderTop: "1px solid #0f0f0f", padding: "20px 48px", display: "flex", justifyContent: "space-between", alignItems: "center", background: "rgba(5,5,5,0.9)" }}>
-        <span style={{ fontSize: "10px", color: "#333", fontFamily: "monospace", letterSpacing: "0.15em" }}>NEUROCART v2.0 · ARBITRUM SEPOLIA · CHAINLINK</span>
+        <span style={{ fontSize: "10px", color: "#4d4d4dff", fontFamily: "monospace", letterSpacing: "0.15em" }}>NEUROCART v2.0 · BASE SEPOLIA · CHAINLINK</span>
         <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
           <motion.div animate={{ opacity: [1, 0.3, 1] }} transition={{ duration: 2, repeat: Infinity }}
             style={{ width: "4px", height: "4px", background: "#4ade80", boxShadow: "0 0 6px #4ade80" }}
