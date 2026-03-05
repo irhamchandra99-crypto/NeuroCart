@@ -345,16 +345,20 @@ function AgentsContent({ useRealData, selectedAgent, setSelectedAgent, filters, 
       if (!raw) continue;
       const rep = raw.totalFeedback > 0n ? Math.round(Number(raw.reputationTotal) / Number(raw.totalFeedback)) : 0;
       result.push({
-        id: i, name: raw.name, skills: skillsRaw ?? [],
-        priceDisplay: raw.priceUSDCents ? `$${(Number(raw.priceUSDCents) / 100).toFixed(2)}` : "$0.00",
-        priceUSDCents: raw.priceUSDCents ? Number(raw.priceUSDCents) : 0, reputation: rep,
-        totalJobs: raw.totalJobs ? Number(raw.totalJobs) : 0, activeJobs: raw.activeJobs ? Number(raw.activeJobs) : 0,
-        isActive: raw.isActive,
-        owner: raw.owner && typeof raw.owner === "string" && raw.owner.length >= 10
-          ? `${raw.owner.slice(0, 6)}...${raw.owner.slice(-4)}`
+        id: i,
+        name: raw[1] ?? `Agent #${i}`,
+        skills: skillsRaw ?? [],
+        priceDisplay: raw[6] ? `$${(Number(raw[6]) / 100).toFixed(2)}` : "$0.00",
+        priceUSDCents: raw[6] ? Number(raw[6]) : 0,
+        reputation: rep,
+        totalJobs: raw[10] ? Number(raw[10]) : 0,
+        activeJobs: raw[11] ? Number(raw[11]) : 0,
+        isActive: raw[5] ?? false,
+        owner: raw[0] && typeof raw[0] === "string" && raw[0].length >= 10
+          ? `${raw[0].slice(0, 6)}...${raw[0].slice(-4)}`
           : "0x???...????",
-        endpoint: raw.endpoint ?? "",
-        stakeAmount: raw.stakeAmount ? (Number(raw.stakeAmount) / 1e18).toFixed(3) : "0.000",
+        endpoint: raw[3] ?? "",
+        stakeAmount: raw[9] ? (Number(raw[9]) / 1e18).toFixed(3) : "0.000",
       });
     }
     // ✅ FIX: tidak fallback ke mock
