@@ -501,18 +501,22 @@ function HomeContent({ tab, setTab, hireAgent, setHireAgent, isConnected, useRea
       const agentRaw = agentBatchData[i * 2]?.result as any;
       const skillsRaw = agentBatchData[i * 2 + 1]?.result as string[] | undefined;
       if (!agentRaw) continue;
-      const repScore = agentRaw.totalFeedback > 0n
-        ? Number(agentRaw.reputationTotal) / Number(agentRaw.totalFeedback)
+      // wagmi returns struct as tuple — access by index:
+      // [0]=owner [1]=name [2]=skills [3]=endpoint [4]=metadataURI
+      // [5]=isActive [6]=priceUSDCents [7]=reputationTotal [8]=totalFeedback
+      // [9]=stakeAmount [10]=totalJobs [11]=activeJobs
+      const repScore = agentRaw[8] && agentRaw[8] > 0n && agentRaw[7]
+        ? Number(agentRaw[7]) / Number(agentRaw[8])
         : 0;
       result.push({
         id: i,
-        name: agentRaw.name ?? `Agent #${i}`,
+        name: agentRaw[1] ?? `Agent #${i}`,
         skills: skillsRaw ?? [],
-        priceDisplay: `$${(Number(agentRaw.priceUSDCents) / 100).toFixed(2)}`,
+        priceDisplay: agentRaw[6] ? `$${(Number(agentRaw[6]) / 100).toFixed(2)}` : "$0.00",
         reputation: Math.round(repScore),
-        totalJobs: Number(agentRaw.totalJobs ?? 0),
-        isActive: agentRaw.isActive ?? false,
-        owner: shortAddr(agentRaw.owner),  // ✅ safe slice
+        totalJobs: agentRaw[10] ? Number(agentRaw[10]) : 0,
+        isActive: agentRaw[5] ?? false,
+        owner: shortAddr(agentRaw[0]),
       });
     }
     return result.length > 0 ? result : MOCK_AGENTS;
@@ -525,14 +529,21 @@ function HomeContent({ tab, setTab, hireAgent, setHireAgent, isConnected, useRea
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const jobRaw = jobBatchData[i]?.result as any;
       if (!jobRaw) continue;
+      // wagmi returns struct as tuple — use named fields with index fallback
+      const desc = jobRaw.jobDescription ?? jobRaw.description ?? jobRaw[2] ?? "";
+      const payment = jobRaw.payment ?? jobRaw[4] ?? 0n;
+      const paymentToken = jobRaw.paymentToken ?? jobRaw[5] ?? 0;
+      const status = jobRaw.status ?? jobRaw[6] ?? 0;
+      const agentId = jobRaw.registryAgentId ?? jobRaw.agentId ?? jobRaw[1] ?? 0;
+      const qualityScore = jobRaw.qualityScore ?? jobRaw[9] ?? 0;
       result.push({
         id: i,
-        description: jobRaw.description ?? jobRaw.jobDescription ?? "",
-        payment: formatEther((jobRaw.payment ?? 0n) as bigint),
-        paymentToken: jobRaw.paymentToken === 0 ? "ETH" : "USDC",
-        status: jobRaw.status ?? 0,
-        agentId: Number(jobRaw.registryAgentId ?? jobRaw.agentId ?? 0),
-        qualityScore: jobRaw.qualityScore ?? 0,
+        description: desc,
+        payment: formatEther(payment as bigint),
+        paymentToken: paymentToken === 0 ? "ETH" : "USDC",
+        status: Number(status),
+        agentId: Number(agentId),
+        qualityScore: Number(qualityScore),
       });
     }
     return result.length > 0 ? result : MOCK_JOBS;

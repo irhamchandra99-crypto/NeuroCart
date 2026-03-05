@@ -343,7 +343,9 @@ function AgentsContent({ useRealData, selectedAgent, setSelectedAgent, filters, 
       const raw = agentBatchData[i * 2]?.result as any;
       const skillsRaw = agentBatchData[i * 2 + 1]?.result as string[] | undefined;
       if (!raw) continue;
-      const rep = raw.totalFeedback > 0n ? Math.round(Number(raw.reputationTotal) / Number(raw.totalFeedback)) : 0;
+      const rep = raw[8] && raw[8] > 0n && raw[7]
+        ? Math.round(Number(raw[7]) / Number(raw[8]))
+        : 0;
       result.push({
         id: i,
         name: raw[1] ?? `Agent #${i}`,
