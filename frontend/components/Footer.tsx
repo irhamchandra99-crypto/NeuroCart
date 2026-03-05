@@ -8,7 +8,7 @@ import { motion } from "framer-motion";
 const T = {
   bg:     { footer: "#080808", footerDeep: "#060606" },
   border: { top: "rgba(255,255,255,0.04)", subtle: "rgba(255,255,255,0.02)" },
-  text:   { primary: "#ffffff", secondary: "#555555", muted: "#6ee7b7", disabled: "#2a2a2a", accent: "#4ade80" },
+  text:   { primary: "#ffffff", secondary: "#aaaaaa", muted: "#6ee7b7", disabled: "#666666", accent: "#4ade80" },
 };
 
 const NAV_LINKS = {
@@ -34,7 +34,7 @@ const SOCIAL = [
 
 const TRUST_ITEMS = [
   "CONTRACT VERIFIED",
-  "ARBITRUM SEPOLIA",
+  "BASE SEPOLIA",
   "CHAINLINK SECURED",
   "ERC-8004 STANDARD",
 ];
@@ -97,7 +97,7 @@ function NetworkIndicator() {
         transition={{ duration: 2, repeat: Infinity }}
         style={{ width: "5px", height: "5px", background: T.text.accent, borderRadius: "50%", boxShadow: "0 0 6px #4ade80" }}
       />
-      <span style={{ fontSize: "9px", color: T.text.muted, fontFamily: "monospace", letterSpacing: "0.12em" }}>ARBITRUM SEPOLIA</span>
+      <span style={{ fontSize: "9px", color: T.text.muted, fontFamily: "monospace", letterSpacing: "0.12em" }}>BASE SEPHOLIA</span>
     </div>
   );
 }
