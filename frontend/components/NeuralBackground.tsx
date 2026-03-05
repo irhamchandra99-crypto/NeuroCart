@@ -11,13 +11,13 @@ type Particle = {
   phase: number; // for floating offset
 };
 
-const PARTICLE_COUNT   = 90;
+const PARTICLE_COUNT   = 140;
 const CONNECTION_DIST  = 140;
 const DOT_COLOR        = "110, 231, 183";
 const LINE_COLOR       = "74, 222, 128";
 const DOT_OPACITY_MAX  = 0.85;
 const LINE_OPACITY_MAX = 0.22;
-const SPHERE_RADIUS    = 0.28; // fraction of min(width, height)
+const SPHERE_RADIUS    = 0.42; // fraction of min(width, height)
 const FLOAT_SPEED      = 0.0008;
 const FLOAT_AMPLITUDE  = 18;
 const RETURN_STRENGTH  = 0.035;
@@ -52,6 +52,20 @@ export default function NeuralBackground() {
       canvas.width  = window.innerWidth;
       canvas.height = window.innerHeight;
       initParticles();
+      // Tambah wandering particles di seluruh screen
+const WANDER_COUNT = 35;
+const wanderers = Array.from({ length: WANDER_COUNT }, () => ({
+  x:  Math.random() * canvas.width,
+  y:  Math.random() * canvas.height,
+  ox: Math.random() * canvas.width,
+  oy: Math.random() * canvas.height,
+  vx: (Math.random() - 0.5) * 0.3,
+  vy: (Math.random() - 0.5) * 0.3,
+  radius:  Math.random() * 1.2 + 0.4,
+  opacity: Math.random() * 0.25 + 0.05,
+  phase:   Math.random() * Math.PI * 2,
+}));
+particles.current = [...particles.current, ...wanderers];
     };
 
     const initParticles = () => {
