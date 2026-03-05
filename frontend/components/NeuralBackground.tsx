@@ -22,8 +22,8 @@ const WANDER_CONN_DIST = 180;
 const WANDER_LINE_MAX  = 0.55;
 const WANDER_DOT_MAX   = 0.9;
 
-const SPHERE_COUNT     = 100;
-const SPHERE_CONN_DIST = 130;
+const SPHERE_COUNT     = 160;
+const SPHERE_CONN_DIST = 180;
 const SPHERE_RADIUS    = 0.40;
 const FLOAT_AMPLITUDE  = 36;
 const FLOAT_SPEED      = 0.0007;
@@ -83,7 +83,7 @@ export default function NeuralBackground() {
           ox: pos.x, oy: pos.y,
           vx: 0, vy: 0,
           radius:  Math.random() * 2 + 0.8,
-          opacity: Math.random() * 0.75 + 0.2,
+          opacity: Math.random() * 0.9 + 0.4,
           phase:   Math.random() * Math.PI * 2,
         };
       });
@@ -182,7 +182,7 @@ export default function NeuralBackground() {
             const dm   = Math.sqrt((midX - mx) ** 2 + (midY - my) ** 2);
             const boost = dm < MOUSE_RADIUS ? (1 - dm / MOUSE_RADIUS) * 0.45 : 0;
             ctx.beginPath();
-            ctx.strokeStyle = `rgba(${LINE_COLOR}, ${(1 - dist / SPHERE_CONN_DIST) * (0.3 + boost)})`;
+            ctx.strokeStyle = `rgba(${LINE_COLOR}, ${(1 - dist / SPHERE_CONN_DIST) * (0.65 + boost)})`;
             ctx.lineWidth = boost > 0.1 ? 1.0 : 0.5;
             if (boost > 0.15) { ctx.shadowBlur = 5; ctx.shadowColor = `rgba(${LINE_COLOR}, 0.35)`; }
             ctx.moveTo(sp[i].x, sp[i].y);
