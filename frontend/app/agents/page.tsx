@@ -350,9 +350,11 @@ function AgentsContent({ useRealData, selectedAgent, setSelectedAgent, filters, 
         priceUSDCents: Number(raw.priceUSDCents), reputation: rep,
         totalJobs: Number(raw.totalJobs), activeJobs: Number(raw.activeJobs ?? 0),
         isActive: raw.isActive,
-        owner: `${(raw.owner as string).slice(0, 6)}...${(raw.owner as string).slice(-4)}`,
-        endpoint: raw.endpoint,
-        stakeAmount: (Number(raw.stakeAmount) / 1e18).toFixed(3),
+        owner: raw.owner && typeof raw.owner === "string" && raw.owner.length >= 10
+          ? `${raw.owner.slice(0, 6)}...${raw.owner.slice(-4)}`
+          : "0x???...????",
+        endpoint: raw.endpoint ?? "",
+        stakeAmount: raw.stakeAmount ? (Number(raw.stakeAmount) / 1e18).toFixed(3) : "0.000",
       });
     }
     // ✅ FIX: tidak fallback ke mock
@@ -418,7 +420,7 @@ function AgentsContent({ useRealData, selectedAgent, setSelectedAgent, filters, 
         <div style={{ border: `1px solid ${T.border.default}`, borderRadius: T.radius.card, overflow: "hidden" }}>
           <FilterBar filters={filters} setFilters={setFilters} allSkills={allSkills} counts={counts} />
 
-          <div style={{ padding: "16px", background: T.bg.page, display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "10px" }}>
+          <div style={{ padding: "16px", background: T.bg.card, display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "10px" }}>
             {filteredAgents.length === 0 ? (
               <div style={{ gridColumn: "span 2", padding: "60px", textAlign: "center", color: T.text.disabled, fontSize: "12px", fontFamily: "monospace", letterSpacing: "0.1em" }}>
                 {useRealData ? "LOADING ON-CHAIN AGENTS..." : "NO AGENTS MATCH YOUR FILTER"}
