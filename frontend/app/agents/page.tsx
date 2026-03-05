@@ -348,7 +348,7 @@ function AgentsContent({ useRealData, selectedAgent, setSelectedAgent, filters, 
         id: i, name: raw.name, skills: skillsRaw ?? [],
         priceDisplay: raw.priceUSDCents ? `$${(Number(raw.priceUSDCents) / 100).toFixed(2)}` : "$0.00",
         priceUSDCents: raw.priceUSDCents ? Number(raw.priceUSDCents) : 0, reputation: rep,
-        totalJobs: Number(raw.totalJobs), activeJobs: Number(raw.activeJobs ?? 0),
+        totalJobs: raw.totalJobs ? Number(raw.totalJobs) : 0, activeJobs: raw.activeJobs ? Number(raw.activeJobs) : 0,
         isActive: raw.isActive,
         owner: raw.owner && typeof raw.owner === "string" && raw.owner.length >= 10
           ? `${raw.owner.slice(0, 6)}...${raw.owner.slice(-4)}`
