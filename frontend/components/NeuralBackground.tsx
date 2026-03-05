@@ -24,7 +24,7 @@ const WANDER_DOT_MAX   = 0.9;
 
 const SPHERE_COUNT     = 160;
 const SPHERE_CONN_DIST = 180;
-const SPHERE_RADIUS    = 0.40;
+const SPHERE_RADIUS    = 0.58;
 const FLOAT_AMPLITUDE  = 36;
 const FLOAT_SPEED      = 0.0007;
 const ROTATE_SPEED     = 0.0018;
