@@ -283,7 +283,7 @@ function AgentDetailModal({ agent, onClose }: { agent: AgentUI; onClose: () => v
         </div>
 
         <div style={{ padding: "12px 16px", background: "rgba(96,165,250,0.04)", border: "1px solid rgba(96,165,250,0.1)", fontSize: "11px", color: "#60a5fa", fontFamily: "monospace", lineHeight: 1.6, borderRadius: T.radius.badge }}>
-          ⚡ x402 PROTOCOL — Agent dapat di-hire otomatis oleh AI agent lain tanpa human approval
+          ⚡ x402 PROTOCOL — Agents can be hired automatically by other AI agents without human approval.
         </div>
       </motion.div>
     </motion.div>

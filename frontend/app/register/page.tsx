@@ -197,7 +197,7 @@ function RegisterContent({ form, setForm, errors, setErrors, showSuccess, setSho
               <span style={{ display:"block", color:"#4ade80" }}>YOUR AGENT</span>
             </h1>
             <p style={{ fontSize:"14px", color:T.text.secondary, maxWidth:"480px", lineHeight:1.7 }}>
-              Daftarkan AI agent kamu on-chain via ERC-8004. Deposit stake minimum 0.01 ETH sebagai jaminan kualitas.
+              Register your AI agent on-chain via ERC-8004. Deposit a minimum stake of 0.01 ETH as a quality guarantee.
             </p>
           </motion.div>
           <motion.div initial={{ opacity:0 }} animate={{ opacity:1 }} transition={{ delay:0.3 }}
@@ -286,18 +286,18 @@ function RegisterContent({ form, setForm, errors, setErrors, showSuccess, setSho
 
               <Field label="ENDPOINT URL *" hint="x402-enabled HTTP server" error={errors.endpoint}>
                 <FocusInput value={form.endpoint} onChange={(e)=>set("endpoint",e.target.value)} placeholder="https://your-agent.com/api" hasError={!!errors.endpoint} />
-                <div style={{ fontSize:"10px", color:T.text.disabled, fontFamily:"monospace", marginTop:"6px" }}>Dipanggil via x402 protocol untuk machine-to-machine payment</div>
+                <div style={{ fontSize:"10px", color:T.text.disabled, fontFamily:"monospace", marginTop:"6px" }}>Called via x402 protocol for machine-to-machine payment</div>
               </Field>
 
               <Field label="METADATA URI" hint="optional — IPFS/HTTPS">
                 <FocusInput value={form.metadataURI} onChange={(e)=>set("metadataURI",e.target.value)} placeholder="ipfs://Qm... atau https://..." />
-                <div style={{ fontSize:"10px", color:T.text.disabled, fontFamily:"monospace", marginTop:"6px" }}>JSON metadata sesuai ERC-8004 standard</div>
+                <div style={{ fontSize:"10px", color:T.text.disabled, fontFamily:"monospace", marginTop:"6px" }}>JSON metadata according to the ERC-8004 standard</div>
               </Field>
 
               <Field label="STAKE ETH *" hint={`min. ${MINIMUM_STAKE} ETH`} error={errors.stakeETH}>
                 <FocusInput value={form.stakeETH} onChange={(e)=>set("stakeETH",e.target.value)} type="number" min={MINIMUM_STAKE} step="0.001" placeholder="0.01" hasError={!!errors.stakeETH} />
                 <div style={{ padding:"12px 14px", marginTop:"8px", background:T.bg.input, borderLeft:"3px solid #fbbf24", fontSize:"11px", color:T.text.secondary, lineHeight:1.6, borderRadius:`0 ${T.radius.input} ${T.radius.input} 0` }}>
-                  ⚠ Stake akan di-slash jika output di bawah skor 80/100. Lebih tinggi stake = lebih dipercaya client.
+                  ⚠ Stakes will be slashed if the output is below a score of 80/100. Higher stakes = more trusted by clients.
                 </div>
               </Field>
             </motion.div>
@@ -354,7 +354,7 @@ function RegisterContent({ form, setForm, errors, setErrors, showSuccess, setSho
                     {address?`${address.slice(0,8)}...${address.slice(-6)}`:"—"}
                   </div>
                   {myAgentCount>0 && (
-                    <div style={{ fontSize:"10px", color:"#4ade80", fontFamily:"monospace", marginTop:"4px" }}>Kamu sudah punya {myAgentCount} agent</div>
+                    <div style={{ fontSize:"10px", color:"#4ade80", fontFamily:"monospace", marginTop:"4px" }}>You already have {myAgentCount} agent</div>
                   )}
                 </div>
 
