@@ -68,7 +68,7 @@ export default function NeuralBackground() {
         y:       Math.random() * canvas.height,
         vx:      (Math.random() - 0.5) * WANDER_SPEED,
         vy:      (Math.random() - 0.5) * WANDER_SPEED,
-        radius:  Math.random() * 3 + 1.5,
+        radius:  Math.random() * 5 + 3,
         opacity: Math.random() * WANDER_DOT_MAX + 0.1,
       }));
 
