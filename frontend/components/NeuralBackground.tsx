@@ -25,7 +25,7 @@ const WANDER_DOT_MAX   = 0.9;
 const SPHERE_COUNT     = 100;
 const SPHERE_CONN_DIST = 130;
 const SPHERE_RADIUS    = 0.40;
-const FLOAT_AMPLITUDE  = 16;
+const FLOAT_AMPLITUDE  = 28;
 const FLOAT_SPEED      = 0.0007;
 const ROTATE_SPEED     = 0.0018;
 const RETURN_STRENGTH  = 0.032;
@@ -145,12 +145,20 @@ export default function NeuralBackground() {
         const dy0   = p.oy - cy;
         const rotX  = cx + dx0 * cosA - dy0 * sinA;
         const rotY  = cy + dx0 * sinA + dy0 * cosA;
-              
+
         // Float on top of rotation
-        const floatX = Math.sin(tick.current * FLOAT_SPEED + p.phase) * FLOAT_AMPLITUDE;
-        const floatY = Math.cos(tick.current * FLOAT_SPEED * 0.65 + p.phase) * FLOAT_AMPLITUDE * 0.45;
-        p.vx += (rotX + floatX - p.x) * RETURN_STRENGTH;
-        p.vy += (rotY + floatY - p.y) * RETURN_STRENGTH;
+        // Setiap partikel bergerak acak dengan 2 frekuensi berbeda
+        const floatX = Math.sin(tick.current * FLOAT_SPEED * 1.3 + p.phase) * FLOAT_AMPLITUDE
+                     + Math.sin(tick.current * FLOAT_SPEED * 0.7 + p.phase * 2.1) * FLOAT_AMPLITUDE * 0.5;
+        const floatY = Math.cos(tick.current * FLOAT_SPEED * 0.9 + p.phase) * FLOAT_AMPLITUDE * 0.6
+                     + Math.cos(tick.current * FLOAT_SPEED * 1.6 + p.phase * 1.7) * FLOAT_AMPLITUDE * 0.35;
+
+        // Tarik kembali ke origin sphere agar tetap dalam cluster
+        const distToOrigin = Math.sqrt((p.x - p.ox) ** 2 + (p.y - p.oy) ** 2);
+        const pullStrength = distToOrigin > 60 ? RETURN_STRENGTH * 2.5 : RETURN_STRENGTH;
+
+        p.vx += (p.ox + floatX - p.x) * pullStrength;
+        p.vy += (p.oy + floatY - p.y) * pullStrength;
 
         const dxm = p.x - mx;
         const dym = p.y - my;
