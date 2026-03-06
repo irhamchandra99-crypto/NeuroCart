@@ -280,7 +280,7 @@ export default function HomePage() {
         </section>
 
         <footer style={{ borderTop: "1px solid #0f0f0f", padding: "20px 48px", display: "flex", justifyContent: "space-between", alignItems: "center", background: "rgba(5,5,5,0.9)",  }}>
-          <span style={{ fontSize: "10px", color: "#8f8b8bff", fontFamily: "monospace", letterSpacing: "0.15em" }}>NEUROCART v2.0 · BASE SEPOLIA · CHAINLINK</span>
+          <span style={{ fontSize: "10px", color: "#8f8b8bff", fontFamily: "monospace", letterSpacing: "0.15em" }}>NEUROCART v1.0 · BASE SEPOLIA · CHAINLINK</span>
           <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
             <motion.div animate={{ opacity: [1, 0.3, 1] }} transition={{ duration: 2, repeat: Infinity }}
               style={{ width: "4px", height: "4px", background: "#4ade80", boxShadow: "0 0 6px #4ade80" }}
