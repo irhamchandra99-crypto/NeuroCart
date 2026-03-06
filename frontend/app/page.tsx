@@ -209,13 +209,13 @@ export default function HomePage() {
                     <span key={s} style={{ fontSize: "10px", padding: "3px 8px", background: "rgba(110,231,183,0.05)", border: "1px solid rgba(110,231,183,0.1)", color: "#6ee7b7", fontFamily: "monospace" }}>{s}</span>
                   ))}
                 </div>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: "1px", background: "#111", marginBottom: "16px" }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: "8px", marginBottom: "16px" }}>
                   {[
                     { label: "PRICE", value: agent.price, color: "#4ade80" },
                     { label: "SCORE", value: String(agent.rep), color: agent.rep >= 80 ? "#4ade80" : "#fbbf24" },
                     { label: "JOBS",  value: String(agent.jobs), color: "#aaa" },
                   ].map((s) => (
-                    <div key={s.label} style={{ padding: "10px", background: "rgba(8,8,8,0.9)" }}>
+                    <div key={s.label} style={{ padding: "10px", background: "rgba(255,255,255,0.03)", backdropFilter: "blur(16px)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: "8px" }}>
                       <div style={{ fontSize: "9px", color: "#6ee7b7", fontFamily: "monospace", letterSpacing: "0.12em", marginBottom: "4px", opacity: 0.6 }}>{s.label}</div>
                       <div style={{ fontSize: "16px", fontWeight: 900, fontFamily: "var(--font-syne), sans-serif", color: s.color }}>{s.value}</div>
                     </div>
