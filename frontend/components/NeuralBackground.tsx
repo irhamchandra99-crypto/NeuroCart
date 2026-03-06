@@ -10,20 +10,20 @@ type WanderParticle = {
 };
 
 type SphereParticle = {
-  lx: number; ly: number; lz: number;   // posisi 3D lokal
-  wvx: number; wvy: number; wvz: number; // walk velocity 3D
-  sx: number; sy: number;                // posisi layar (proyeksi)
-  depth: number;                         // 0=belakang, 1=depan
+  lx: number; ly: number; lz: number;
+  wvx: number; wvy: number; wvz: number;
+  sx: number; sy: number;
+  depth: number;
   radius: number;
   opacity: number;
   phase: number;
-  fireT: number;    // timer firing (detik)
-  fireMax: number;  // durasi firing (detik)
+  fireT: number;
+  fireMax: number;
 };
 
 // ── WANDERER CONSTANTS ─────────────────────────────────────────
 const WANDER_COUNT     = 70;
-const WANDER_SPEED     = 24;           // px/detik (bukan px/frame)
+const WANDER_SPEED     = 24;
 const WANDER_CONN_DIST = 180;
 const WANDER_LINE_MAX  = 0.55;
 const WANDER_DOT_MAX   = 0.9;
@@ -33,31 +33,29 @@ const SPHERE_COUNT     = 130;
 const SPHERE_CONN_DIST = 140;
 const SPHERE_RADIUS    = 0.30;
 
-// Rotasi globe — radian/detik
 const ROT_X_SPEED      = 0.055;
 const ROT_Y_SPEED      = 0.13;
 
-// Random walk — unit/detik
-const WALK_SPEED       = 1.4;          // kecepatan max drift
-const WALK_CHANGE_RATE = 2.0;          // perubahan arah per detik (Poisson rate)
+const WALK_SPEED       = 1.4;
+const WALK_CHANGE_RATE = 2.0;
 const WALK_MAX_OFFSET  = 0.18;
 
-// Mouse
 const MOUSE_RADIUS     = 130;
-const MOUSE_STRENGTH   = 18;           // impulse/detik (lebih halus)
-const MOUSE_GLOBE_PUSH = 12;           // kekuatan dorong saat cursor di dalam globe
-const DAMPING          = 0.012;        // time constant (bukan per-frame)
+const MOUSE_STRENGTH   = 18;
+// Push saat cursor di dalam globe — smooth & terasa
+const MOUSE_GLOBE_PUSH = 38;
 
-// Firing — dalam detik
-const FIRE_RATE        = 0.055;        // event/detik per node
+// Damping: exp(-TIME_CONST * dt)
+// Nilai lebih kecil = dot bergerak lebih bebas & smooth
+const TIME_CONST       = 5.5;
+
+const FIRE_RATE        = 0.055;
 const FIRE_DURATION    = 0.65;
 const FIRE_RADIUS_ADD  = 2.0;
 const FIRE_GLOW        = 16;
 
-// Perspektif
 const PERSPECTIVE      = 2.2;
 
-// Warna
 const DOT_COLOR        = "110, 231, 183";
 const LINE_COLOR       = "74, 222, 128";
 
@@ -91,7 +89,7 @@ export default function NeuralBackground() {
   const spherePts = useRef<SphereParticle[]>([]);
   const mouse     = useRef({ x: -9999, y: -9999 });
   const rafId     = useRef<number | null>(null);
-  const lastTime  = useRef<number>(0);   // ← timestamp frame sebelumnya
+  const lastTime  = useRef<number>(0);
   const frameN    = useRef(0);
   const rotX      = useRef(0.3);
   const rotY      = useRef(0);
@@ -145,11 +143,8 @@ export default function NeuralBackground() {
     window.addEventListener("mouseleave", onLeave);
 
     const draw = (timestamp: number) => {
-      // ── DELTA TIME ──────────────────────────────────────────
-      // dt dalam detik, clamp max 0.1s agar tidak loncat saat tab idle
-      const dt = Math.min((timestamp - lastTime.current) / 1000, 0.1);
+      const dt = Math.min((timestamp - lastTime.current) / 1000, 0.05); // clamp 50ms max
       lastTime.current = timestamp;
-      // skip frame pertama (dt akan sangat besar)
       if (dt <= 0) { rafId.current = requestAnimationFrame(draw); return; }
 
       frameN.current += 1;
@@ -161,14 +156,12 @@ export default function NeuralBackground() {
       const cy = canvas.height / 2;
       const r  = Math.min(canvas.width, canvas.height) * SPHERE_RADIUS;
 
-      // rotasi berbasis waktu nyata (radian/detik × dt)
       rotX.current += ROT_X_SPEED * dt;
       rotY.current += ROT_Y_SPEED * dt;
 
-      // ── LAYER 1: Wanderers ────────────────────────────────
+      // ── LAYER 1: Wanderers ─────────────────────────────────
       const wp = wanderers.current;
       for (const p of wp) {
-        // gerak berbasis dt (px/detik)
         p.x += p.vx * dt;
         p.y += p.vy * dt;
         if (p.x < 0 || p.x > canvas.width)  p.vx *= -1;
@@ -196,21 +189,24 @@ export default function NeuralBackground() {
         ctx.fill();
       }
 
-      // ── LAYER 2: Sphere cluster 3D ────────────────────────
+      // ── LAYER 2: Sphere cluster 3D ─────────────────────────
       const sp = spherePts.current;
 
-      // exponential damping yang benar berbasis dt
-      // damping = e^(-DAMPING * dt) → kecepatan berkurang konsisten
-      const dampFactor = Math.exp(-8 * dt);   // ~8 = time constant
+      // Apakah cursor sedang di dalam globe (proyeksi 2D)
+      const dxGlobe       = mx - cx;
+      const dyGlobe       = my - cy;
+      const cursorInGlobe = Math.sqrt(dxGlobe**2 + dyGlobe**2) < r;
+
+      // Damping berbasis dt — konsisten di semua framerate
+      const dampFactor = Math.exp(-TIME_CONST * dt);
 
       for (const p of sp) {
 
-        // Random Walk: peluang ubah arah berbasis Poisson (rate × dt)
+        // ── Random Walk ──────────────────────────────────────
         if (Math.random() < WALK_CHANGE_RATE * dt) {
           p.wvx += (Math.random() - 0.5) * WALK_SPEED * 0.8;
           p.wvy += (Math.random() - 0.5) * WALK_SPEED * 0.8;
           p.wvz += (Math.random() - 0.5) * WALK_SPEED * 0.8;
-          // clamp kecepatan
           const spd = Math.sqrt(p.wvx**2 + p.wvy**2 + p.wvz**2);
           if (spd > WALK_SPEED) {
             p.wvx = (p.wvx/spd) * WALK_SPEED;
@@ -219,16 +215,15 @@ export default function NeuralBackground() {
           }
         }
 
-        // integrasi posisi (unit/detik × dt)
+        // ── Integrasi posisi ──────────────────────────────────
         p.lx += p.wvx * dt;
         p.ly += p.wvy * dt;
         p.lz += p.wvz * dt;
 
-        // Boundary spherical
+        // ── Spherical boundary ────────────────────────────────
         const dist3D = Math.sqrt(p.lx**2 + p.ly**2 + p.lz**2);
         const maxR   = r * (1 + WALK_MAX_OFFSET);
         const minR   = r * (1 - WALK_MAX_OFFSET);
-
         if (dist3D > maxR) {
           const s  = maxR / dist3D;
           p.lx *= s; p.ly *= s; p.lz *= s;
@@ -243,58 +238,81 @@ export default function NeuralBackground() {
           p.lx *= s; p.ly *= s; p.lz *= s;
         }
 
-        // Rotasi + proyeksi
+        // ── Rotasi + proyeksi ─────────────────────────────────
         const [rx, ry, rz] = rotate3D(p.lx, p.ly, p.lz, rotX.current, rotY.current);
         const proj = project(rx, ry, rz, cx, cy, r);
         p.sx    = proj.sx;
         p.sy    = proj.sy;
         p.depth = proj.depth;
 
-        // Mouse repulsion — sama seperti versi asli, tanpa dt
+        // ── Vektor dot → kursor di layar ─────────────────────
         const dxm = p.sx - mx;
         const dym = p.sy - my;
         const dm  = Math.sqrt(dxm**2 + dym**2);
-        if (dm < MOUSE_RADIUS && dm > 0) {
+        const dmSafe = Math.max(dm, 0.001); // hindari div by zero
+
+        // ── Mouse repulsion (di luar & dalam globe) ───────────
+        if (dm < MOUSE_RADIUS) {
           const f = (1 - dm / MOUSE_RADIUS) * MOUSE_STRENGTH;
-          p.wvx  += (dxm / dm) * f * dt;
-          p.wvy  += (dym / dm) * f * dt;
+          p.wvx += (dxm / dmSafe) * f * dt;
+          p.wvy += (dym / dmSafe) * f * dt;
         }
 
-        // Cursor di dalam globe → semua dot menjauh dari kursor
-        // Cek apakah cursor berada di dalam radius globe (proyeksi 2D)
-        const dxGlobe = mx - cx;
-        const dyGlobe = my - cy;
-        const distFromCenter = Math.sqrt(dxGlobe**2 + dyGlobe**2);
-        if (distFromCenter < r) {
-          // cursor ada di dalam globe — dorong dot menjauh dari kursor
-          if (dm > 0) {
-            // kekuatan push makin kuat makin dekat ke kursor
-            const pushF = (1 - Math.min(dm / (r * 1.2), 1)) * MOUSE_GLOBE_PUSH;
-            p.wvx += (dxm / dm) * pushF * dt;
-            p.wvy += (dym / dm) * pushF * dt;
+        // ── Globe push: smooth & tangential ───────────────────
+        // Hanya aktif saat cursor di dalam globe
+        if (cursorInGlobe) {
+          // Kekuatan push: smooth falloff dari kursor ke tepi globe
+          // Makin jauh dari kursor = makin lemah (tidak linear, pakai smooth curve)
+          const t      = Math.min(dm / r, 1.0);
+          const smooth = 1 - t * t;            // ease-out: kuat di dekat kursor, hilang di tepi
+          const pushF  = smooth * MOUSE_GLOBE_PUSH;
+
+          // Arah push: menjauh dari kursor di ruang layar
+          // lalu proyeksikan jadi tangential di permukaan bola
+          // agar dot tidak keluar dari bentuk globe
+          const distL = Math.sqrt(p.lx**2 + p.ly**2 + p.lz**2);
+          if (distL > 0 && pushF > 0.01) {
+            // Normal permukaan bola di posisi dot (ruang 3D)
+            const nx3 = p.lx / distL;
+            const ny3 = p.ly / distL;
+
+            // Arah push di layar (menjauh dari kursor)
+            let pvx = (dxm / dmSafe) * pushF * dt;
+            let pvy = (dym / dmSafe) * pushF * dt;
+
+            // Hilangkan komponen radial → gerakan jadi tangential
+            // dot product antara push vector & normal permukaan
+            const radial = pvx * nx3 + pvy * ny3;
+            pvx -= radial * nx3;
+            pvy -= radial * ny3;
+
+            // Akumulasi ke velocity — smooth karena sudah di-damping
+            p.wvx += pvx;
+            p.wvy += pvy;
+            // Sedikit z agar terasa 3D
+            p.wvz += (p.lz >= 0 ? -1 : 1) * pushF * 0.12 * dt;
           }
         }
 
-        // Damping exponential — konsisten di semua frame rate
+        // ── Damping seragam ───────────────────────────────────
         p.wvx *= dampFactor;
         p.wvy *= dampFactor;
         p.wvz *= dampFactor;
 
-        // Spontaneous Firing — timer dalam detik
+        // ── Spontaneous Firing ────────────────────────────────
         if (p.fireT <= 0) {
-          // Poisson: peluang = rate × dt
           if (Math.random() < FIRE_RATE * dt) p.fireT = p.fireMax;
         } else {
-          p.fireT -= dt;  // countdown dalam detik
+          p.fireT -= dt;
         }
       }
 
-      // Sort depth setiap 2 frame (30fps cukup untuk depth ordering)
+      // Sort depth setiap 2 frame
       if (frameN.current % 2 === 0) {
         sp.sort((a, b) => a.depth - b.depth);
       }
 
-      // Gambar garis sinaps
+      // ── Gambar garis sinaps ───────────────────────────────
       const connDist2 = SPHERE_CONN_DIST * SPHERE_CONN_DIST;
       const mousR2    = MOUSE_RADIUS * MOUSE_RADIUS;
 
@@ -310,14 +328,14 @@ export default function NeuralBackground() {
           const proximity = 1 - dist / SPHERE_CONN_DIST;
           const depthAvg  = (a.depth + b.depth) / 2;
 
-          const midX  = (a.sx + b.sx) / 2;
-          const midY  = (a.sy + b.sy) / 2;
-          const md2   = (midX-mx)**2 + (midY-my)**2;
+          const midX = (a.sx + b.sx) / 2;
+          const midY = (a.sy + b.sy) / 2;
+          const md2  = (midX-mx)**2 + (midY-my)**2;
           const boost = md2 < mousR2 ? (1 - md2/mousR2) * 0.5 : 0;
 
           const isFiring = a.fireT > 0 || b.fireT > 0;
           const fireP    = Math.max(a.fireT/a.fireMax, b.fireT/b.fireMax);
-          const fireBst  = isFiring ? Math.sin(Math.max(fireP,0) * Math.PI) * 0.45 : 0;
+          const fireBst  = isFiring ? Math.sin(Math.max(fireP, 0) * Math.PI) * 0.45 : 0;
 
           const alpha = proximity * (0.2 + depthAvg * 0.6 + boost + fireBst);
 
@@ -337,7 +355,7 @@ export default function NeuralBackground() {
         }
       }
 
-      // Gambar titik neuron
+      // ── Gambar titik neuron ───────────────────────────────
       for (const p of sp) {
         const dxm  = p.sx - mx, dym = p.sy - my;
         const dm2  = dxm*dxm + dym*dym;
@@ -345,7 +363,7 @@ export default function NeuralBackground() {
 
         const isFiring  = p.fireT > 0;
         const fireP     = isFiring ? p.fireT / p.fireMax : 0;
-        const firePulse = isFiring ? Math.sin(Math.max(fireP,0) * Math.PI) : 0;
+        const firePulse = isFiring ? Math.sin(Math.max(fireP, 0) * Math.PI) : 0;
 
         const depthScale   = 0.4 + p.depth * 0.9;
         const finalRadius  = (p.radius * depthScale) + glow * 1.2 + firePulse * FIRE_RADIUS_ADD;
@@ -369,7 +387,6 @@ export default function NeuralBackground() {
       rafId.current = requestAnimationFrame(draw);
     };
 
-    // pass timestamp pertama
     rafId.current = requestAnimationFrame((t) => {
       lastTime.current = t;
       rafId.current = requestAnimationFrame(draw);
