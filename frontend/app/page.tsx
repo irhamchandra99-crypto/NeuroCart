@@ -163,7 +163,7 @@ export default function HomePage() {
           <motion.div initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }} style={{ marginTop: "32px", textAlign: "center" }}>
             <Link href="/how-it-works" style={{ textDecoration: "none" }}>
               <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
-                style={{ display: "inline-block", padding: "12px 28px", background: "transparent", color: "#6ee7b7", fontSize: "11px", fontWeight: 700, letterSpacing: "0.2em", fontFamily: "monospace", border: "1px solid rgba(110,231,183,0.15)", cursor: "pointer" }}
+                style={{ display: "inline-block", padding: "12px 28px", background: "rgba(74,222,128,0.08)", color: "#4ade80", fontSize: "11px", fontWeight: 700, letterSpacing: "0.2em", fontFamily: "monospace", border: "1px solid rgba(74,222,128,0.5)", borderRadius: "8px", cursor: "pointer", boxShadow: "0 0 16px rgba(74,222,128,0.1)", textShadow: "0 0 8px rgba(74,222,128,0.6)" }}
               >
                 READ FULL DOCS →
               </motion.div>
