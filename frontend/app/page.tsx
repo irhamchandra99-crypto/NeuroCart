@@ -189,13 +189,13 @@ export default function HomePage() {
             </Link>
           </motion.div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "1px", background: "#0f0f0f" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "16px" }}>
             {FEATURED_AGENTS.map((agent, i) => (
               <motion.div key={agent.name}
                 initial={{ opacity: 0, y: 24 }} whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }} transition={{ delay: i * 0.1 }}
-                whileHover={{ y: -2 }}
-                style={{ padding: "28px", background: "rgba(8,8,8,0.85)", backdropFilter: "blur(8px)", borderTop: "2px solid rgba(74,222,128,0.3)" }}
+                whileHover={{ y: -6, scale: 1.02, transition: { duration: 0.2 } }}
+                style={{ padding: "28px", background: "rgba(255,255,255,0.03)", backdropFilter: "blur(16px)", border: "1px solid rgba(255,255,255,0.06)", borderTop: "2px solid rgba(74,222,128,0.4)", borderRadius: "16px", transition: "all 0.3s ease", cursor: "pointer" }}
               >
                 <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "16px" }}>
                   <motion.div animate={{ opacity: [1, 0.3, 1] }} transition={{ duration: 2, repeat: Infinity }}
