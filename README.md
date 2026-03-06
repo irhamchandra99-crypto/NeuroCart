@@ -1,622 +1,350 @@
-# NeuroCart 🛒🤖
+<div align="center">
 
-**The First Trustless AI Agent Marketplace**
+# NeuroCart
 
-> Where AI agents earn, compete, and get paid — autonomously, on-chain.
+### The First Trustless AI Agent Marketplace
 
-[![Network: Base Sepolia](https://img.shields.io/badge/Network-Base%20Sepolia-0052FF?style=flat-square&logo=coinbase)](https://sepolia.basescan.org)
-[![Chainlink Functions](https://img.shields.io/badge/Chainlink-Functions-375BD2?style=flat-square)](https://functions.chain.link)
-[![Chainlink Automation](https://img.shields.io/badge/Chainlink-Automation-375BD2?style=flat-square)](https://automation.chain.link)
-[![Chainlink Data Feeds](https://img.shields.io/badge/Chainlink-Data%20Feeds-375BD2?style=flat-square)](https://data.chain.link)
-[![Chainlink CRE](https://img.shields.io/badge/Chainlink-CRE-375BD2?style=flat-square)](https://chain.link/chainlink-runtime-environment)
-[![ERC-8004](https://img.shields.io/badge/Standard-ERC--8004-21C55D?style=flat-square)](https://eips.ethereum.org)
-[![Tests: 17/17](https://img.shields.io/badge/Tests-17%2F17%20Passing-21C55D?style=flat-square)](#-tests)
-[![Hackathon: CRE & AI Track](https://img.shields.io/badge/Hackathon-CRE%20%26%20AI%20Track-F97316?style=flat-square)](https://chain.link/hackathon/prizes)
+*Where AI agents earn, compete, and get paid — autonomously, on-chain.*
 
----
+[![Tests](https://img.shields.io/badge/Tests-17%2F17_Passing-34d399?style=for-the-badge)](test/)
+[![Chainlink](https://img.shields.io/badge/Chainlink-Functions_%2B_Automation_%2B_Data_Feeds-375BD2?style=for-the-badge&logo=chainlink)](https://chain.link)
+[![ERC-8004](https://img.shields.io/badge/Standard-ERC--8004_Trustless_Agents-a78bfa?style=for-the-badge)](src/interfaces/IERC8004.sol)
+[![x402](https://img.shields.io/badge/Payment-x402_Protocol-fbbf24?style=for-the-badge)](sdk/demo_client.py)
+[![Network](https://img.shields.io/badge/Network-Base_Sepolia-0052FF?style=for-the-badge)](https://base.org)
 
-## 🔗 Quick Links
+**[Architecture](#architecture) · [Chainlink Integration](#chainlink-integration) · [Quick Start](#quick-start) · [Submission](submission/)**
 
-| | Resource | Link |
-|--|----------|------|
-| 🌐 | Live Demo | [neuro-cart-nine.vercel.app](https://neuro-cart-nine.vercel.app) |
-| 📹 | Demo Video | [submission/YouTube.md](./submission/YouTube.md) |
-| 📊 | Pitch Deck | [submission/PitchDeck.md](./submission/PitchDeck.md) |
-| 🎬 | Live Demo Script | [submission/LiveDemo.md](./submission/LiveDemo.md) |
-| 🔍 | Base Sepolia Explorer | [sepolia.basescan.org](https://sepolia.basescan.org) |
+> Built for the [Chainlink Convergence Hackathon 2026](https://chain.link/hackathon) — **CRE & AI Track**
+
+</div>
 
 ---
 
-## 🏆 Hackathon Submission
+## The Problem
 
-**Event:** Chainlink Convergence Hackathon 2026  
-**Track:** [CRE & AI](https://chain.link/hackathon/prizes) — *For projects that integrate AI into Web3 workflows to assist with decision-making, automation, or execution.*
+The AI economy is broken — and no one has fixed the trust layer.
 
-### ✅ Requirement Checklist
+- **$8.4 billion** is spent annually on AI services with **zero on-chain quality guarantees**
+- AI agent developers have no verifiable way to prove output quality — clients must blindly trust
+- Every payment goes through centralized rails: Stripe, banks, and middlemen take 3–5% and can freeze funds at will
+- There is no portable reputation system — a fraudulent AI agent looks identical to a great one
+- **Agent-to-agent payments don't exist** — every API call still requires a human with a credit card
 
-| Requirement | Status | Evidence |
-|-------------|--------|----------|
-| CRE Workflow as orchestration layer | ✅ | [`cre/src/workflow.ts`](./cre/src/workflow.ts) |
-| Integrates blockchain with external LLM | ✅ | DON → Claude API → on-chain settlement |
-| Successful simulation / live deployment | ✅ | Deployed on Base Sepolia (Chain ID 84532) |
-| 3–5 min publicly viewable video | ✅ | [submission/YouTube.md](./submission/YouTube.md) |
-| Publicly accessible source code | ✅ | This repository |
-| README with all Chainlink file links | ✅ | [See Chainlink Files Index below](#-chainlink-files-index) |
+**The result:** AI is transforming the world, but the market that distributes AI services is still running on 1990s infrastructure.
 
 ---
 
-## 📌 What is NeuroCart?
+## The Solution: NeuroCart
 
-NeuroCart is a **trustless marketplace** where AI agents register, get hired, prove their output quality, and earn crypto — all without any human intermediary.
+NeuroCart is a **decentralized AI agent marketplace** where:
 
-**The core loop:**
+- 🤖 Any developer can register an AI agent and start earning crypto immediately
+- 💳 Any client — human or machine — can hire agents via a standard HTTP call with no accounts, no KYC
+- ⛓️ **Chainlink Functions verifies AI output quality** — payment only releases if the AI scored ≥ 80/100
+- 🔐 **ERC-8004 guarantees agent identity** — every agent has a verifiable on-chain identity, reputation, and slashable stake
+- ⚡ **x402 enables machine-to-machine payments** — AI agents autonomously pay other AI agents, no human approval required
 
-1. An AI agent **registers** on-chain with a slashable stake (ERC-8004)
-2. A client **hires** the agent, locking payment in a smart escrow
-3. The agent delivers work and **submits** the result on-chain
-4. **Chainlink** — via the CRE workflow and DON — calls the Claude API to score quality from 0–100
-5. Score ≥ 80 → **payment released** to the agent + reputation updated
-6. Score < 80 → **client refunded** + agent stake slashed
-
-No trusted parties. No manual review. No middlemen.
+**One sentence:** NeuroCart is the first trustless marketplace where AI agents earn money, build reputation, and pay each other — all verified by Chainlink.
 
 ---
 
-## 🔑 The Problem
-
-The AI services market runs on 1990s infrastructure — Stripe, bank wires, and blind trust. There are zero on-chain quality guarantees for AI output, no portable reputation systems, and AI agents cannot pay each other without a human holding a credit card.
-
-| Pain Point | Reality Today |
-|-----------|---------------|
-| AI services market | $8.4B annually — zero on-chain trust layer |
-| Quality verification | Self-reported, unverifiable |
-| Payment rails | 3–5% fees, instant freezing, human-gated |
-| Agent reputation | Non-portable, easily faked |
-| Agent-to-agent payments | Impossible without human intermediary |
-
----
-
-## ⚡ End-to-End Flow
+## Architecture
 
 ```
-FINA (Client)                              SANI (AI Agent Provider)
-─────────────                              ────────────────────────
-1. Connect wallet                          1. registerAgent() — ERC-8004
-2. Browse marketplace                         └─ Stake 0.01 ETH (slashable)
-3. createJob() on-chain                    2. Listen for JobCreated event
-   └─ Price via Chainlink ETH/USD Feed        └─ acceptJob() on-chain
-   └─ Payment locked in JobEscrow          3. Run AI task (summarize / translate)
-                                           4. submitResult() → status: VERIFYING
-
-─────────────────────── BASE SEPOLIA ────────────────────────────────
-
-AgentRegistry ──── JobEscrow ──── NeuroCartFunctions ──── NeuroCartAutomation
-(ERC-8004)         (Escrow)       (Chainlink Functions)    (Chainlink Automation)
-                       │                  ↓                       │
-              submitResult()   requestVerification()        checkUpkeep()
-                       │                  ↓               performUpkeep()
-                       │       [Chainlink DON / CRE]      cancelExpiredJob()
-                       │       verify-quality.js
-                       │       → Claude API → score 0–100
-                       │                  │
-              finalizeVerification() ◄────┘
-                       │
-              score ≥ 80?
-              ├─ YES → release ETH to Sani + update ERC-8004 reputation ✅
-              └─ NO  → refund Fina + slash Sani's stake ❌
+┌──────────────────────────────────────────────────────────────────────────┐
+│                          NEUROCART ARCHITECTURE                          │
+│                                                                          │
+│   CLIENT (Fina)                         PROVIDER (Sani's SummarizerBot) │
+│   ─────────────                         ──────────────────────────────── │
+│   1. Connect Wallet                     1. Register agent (ERC-8004)    │
+│   2. Browse NeuroCart Dashboard            └─ Stake 0.01 ETH (slashable)│
+│   3. Click "Hire Agent"                 2. Start x402 Flask server      │
+│   4. createJob() on-chain              3. Detect JobCreated event       │
+│      └─ Price from Chainlink               └─ acceptJob() on-chain      │
+│         ETH/USD Data Feed              4. Run Claude AI → summarize     │
+│                                        5. submitResult() → VERIFYING    │
+│                                                                          │
+│  ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ BASE SEPOLIA ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─  │
+│                                                                          │
+│  AgentRegistry ── JobEscrow ── NeuroCartFunctions ── NeuroCartAutomation│
+│  (ERC-8004)       (Escrow)     (Chainlink Functions)  (Automation)      │
+│                       │               │                    │            │
+│              submitResult()   requestVerification()  checkUpkeep()      │
+│                       │               ↓              cancelExpired()    │
+│                       │        [Chainlink DON]                          │
+│                       │        verify-quality.js                         │
+│                       │        → Claude API → score 0-100               │
+│                       │               │                                  │
+│              finalizeVerification()◄──┘                                 │
+│                       │                                                  │
+│              score ≥ 80?                                                 │
+│              ├─ YES → Release payment to Sani + update ERC-8004 rep     │
+│              └─ NO  → Refund Fina + Slash Sani's stake                  │
+│                                                                          │
+│  ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ x402 MACHINE PAYMENT FLOW ─ ─ ─ ─ ─ ─ ─ ─ ─  │
+│                                                                          │
+│  AI Client ──► POST /api/summarize ◄── HTTP 402 + USDC instructions     │
+│  AI Client ──► Pay 2 USDC (Base Sepolia) ──► retry + X-PAYMENT header   │
+│  AI Client ◄── 200 OK + summary + blockchain job ID + Chainlink pending  │
+└──────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 🔗 Chainlink Integration (Deep Dive)
+## Chainlink Integration
 
-NeuroCart uses **all four Chainlink services** as load-bearing infrastructure — not as add-ons.
+NeuroCart uses **all three** Chainlink services in a single, unified system:
 
----
+### Chainlink Functions — AI Quality Verification
 
-### 1. Chainlink Runtime Environment (CRE) — Orchestration Layer
-
-**File:** [`cre/src/workflow.ts`](./cre/src/workflow.ts)  
-**Config:** [`cre/cre-config.json`](./cre/cre-config.json)
-
-The CRE workflow is the core orchestration layer. It runs on a cron trigger every minute, polls the blockchain for jobs awaiting verification, calls the Claude API off-chain via the DON, and writes the quality score back on-chain — all without a centralized server.
-
-```
-[TRIGGER] Cron every 1 minute
-    ↓
-[EVM READ]  JobEscrow.getVerifyingJobIds()
-            → Get all jobs awaiting quality verification
-    ↓
-[EVM READ]  JobEscrow.jobs(jobId)
-            → Fetch resultData + jobDescription for each job
-    ↓
-[HTTP POST] https://api.anthropic.com/v1/messages
-            → Claude scores output quality 0–100
-    ↓
-[EVM WRITE] NeuroCartFunctions.receiveCREScore(jobId, score)
-            → score ≥ 80: release ETH + update ERC-8004 reputation
-            → score < 80: refund client + slash agent stake
-```
-
-**Why CRE is the right tool:**
-
-| Concern | Without CRE | With CRE |
-|---------|------------|---------|
-| Who runs the AI scorer? | Centralized server (trusted) | Chainlink DON (trustless) |
-| API key security | Exposed or self-hosted | DON secrets (encrypted) |
-| Multi-step orchestration | Manual coordination | Single CRE workflow |
-| On-chain settlement | Manual transaction | CRE EVM write |
-| Decentralization | Partial | Full — no central operator |
-
-**Simulate the CRE workflow:**
-```bash
-cd cre
-bun install
-cre workflow simulate --workflow src/workflow.ts --config cre-config.json
-```
-
-Expected output:
-```
-[CRE] Cron trigger fired
-[CRE] EVM READ: getVerifyingJobIds() → [1, 2]
-[CRE] HTTP POST: api.anthropic.com → score=91
-[CRE] EVM WRITE: receiveCREScore(1, 91) → tx=0xabc...
-[CRE] HTTP POST: api.anthropic.com → score=67
-[CRE] EVM WRITE: receiveCREScore(2, 67) → tx=0xdef...
-[CRE] Result: { status: "success", verified: 2 }
-```
-
----
-
-### 2. Chainlink Functions — AI Quality Verification
-
-**DON Source:** [`chainlink/verify-quality.js`](./chainlink/verify-quality.js)  
-**Consumer Contract:** [`src/NeuroCartFunctions.sol`](./src/NeuroCartFunctions.sol)
-
-JavaScript that runs on the Chainlink DON in an isolated, tamper-proof environment. It calls the Claude API (using DON-managed secrets) and returns a quality score 0–100 on-chain.
+The core innovation. Every AI job is verified by a Chainlink DON running a JavaScript source that calls Claude API to independently score the AI output.
 
 ```javascript
-// chainlink/verify-quality.js — runs on Chainlink DON
+// chainlink/verify-quality.js — runs on Chainlink Decentralized Oracle Network
 const response = await Functions.makeHttpRequest({
   url: "https://api.anthropic.com/v1/messages",
-  method: "POST",
-  headers: {
-    "x-api-key": secrets.CLAUDE_API_KEY, // DON-managed secret
-    "anthropic-version": "2023-06-01",
-    "content-type": "application/json"
-  },
+  headers: { "x-api-key": secrets.CLAUDE_API_KEY },  // stored in DON secrets
   data: {
     model: "claude-haiku-4-5-20251001",
-    max_tokens: 10,
-    messages: [{ role: "user", content: prompt }]
-  },
-  timeout: 9000
+    messages: [{ role: "user", content:
+      `Score this AI summarization quality from 0-100. Return only a number.\n\n${args[0]}`
+    }]
+  }
 });
-return Functions.encodeUint256(parseInt(response.data.content[0].text.trim()));
+const score = parseInt(response.data.content[0].text.trim());
+return Functions.encodeUint256(score);  // → on-chain verifiable result
 ```
 
-The contract receives the score via callback and routes to payment release or stake slash:
+**Flow:**
+```
+Agent submits result
+    → JobEscrow calls NeuroCartFunctions.requestVerification()
+    → Chainlink DON runs verify-quality.js
+    → Claude API independently scores the output (0–100)
+    → fulfillRequest() callback with score
+    → JobEscrow.finalizeVerification() releases or refunds payment
+```
+
+### Chainlink Data Feeds — Real-Time ETH/USD Pricing
+
+Agents price their services in **USD** — clients always pay the correct ETH equivalent.
 
 ```solidity
-// src/NeuroCartFunctions.sol
-function fulfillRequest(bytes32 requestId, bytes memory response, bytes memory err)
-    internal override
-{
-    uint8 score = uint8(abi.decode(response, (uint256)));
-    bool passed = score >= QUALITY_THRESHOLD; // 80
-    IJobEscrowFinalize(escrowContract).finalizeVerification(jobId, passed, score);
-    emit VerificationFulfilled(requestId, jobId, score, passed);
+// src/AgentRegistry.sol — always fair market price, manipulation-resistant
+function getRequiredETH(uint256 agentId) external view returns (uint256) {
+    (, int256 price,,,) = priceFeed.latestRoundData(); // ETH/USD Chainlink feed
+    uint256 priceUSDCents = agents[agentId].priceUSDCents;  // e.g., 200 = $2.00
+    return (priceUSDCents * 1e18) / (uint256(price) / 1e6);  // exact ETH equivalent
 }
 ```
 
-**Supported job types:** `summarization`, `translation`, `transcription`, `general` — each with a tailored scoring rubric.
+### Chainlink Automation — Expired Job Cleanup
 
----
-
-### 3. Chainlink Data Feeds — Real-Time ETH/USD Pricing
-
-**Contract:** [`src/AgentRegistry.sol`](./src/AgentRegistry.sol)  
-**Feed Address (Base Sepolia):** `0x4aDC67696bA383F43DD60A9e78F2C97Fbbfc7cb1`
-
-Agents price their services in USD cents. Clients always pay the exact ETH equivalent at live market rates — manipulation-resistant, no manual conversion.
-
-```solidity
-// src/AgentRegistry.sol
-AggregatorV3Interface public immutable priceFeed;
-
-function getLatestETHPrice() public view returns (uint256) {
-    (, int256 price,,,) = priceFeed.latestRoundData();
-    require(price > 0, "Invalid oracle price");
-    return uint256(price); // 8 decimals
-}
-
-function getRequiredETH(uint256 agentId) public view returns (uint256 ethAmount) {
-    uint256 priceUSDCents = agents[agentId].priceUSDCents;
-    uint256 ethUSDPrice = getLatestETHPrice();
-    ethAmount = (priceUSDCents * 1e16) / (ethUSDPrice / 1e2);
-}
-```
-
----
-
-### 4. Chainlink Automation — Zero-Maintenance Job Cleanup
-
-**Contract:** [`src/NeuroCartAutomation.sol`](./src/NeuroCartAutomation.sol)
-
-Chainlink Automation nodes continuously monitor the escrow and automatically cancel expired jobs, refunding clients — with zero human intervention required.
+Zero human maintenance. Jobs that expire are automatically cancelled and clients refunded.
 
 ```solidity
 // src/NeuroCartAutomation.sol
-function checkUpkeep(bytes calldata)
-    external view override
-    returns (bool upkeepNeeded, bytes memory performData)
-{
-    // Scans up to 50 jobs per check (gas-efficient)
-    // Returns IDs of jobs past their deadline
+function checkUpkeep(bytes calldata) external view override
+    returns (bool upkeepNeeded, bytes memory performData) {
+    // Scans up to 50 jobs per check, finds expired CREATED/ACCEPTED jobs
+    // Returns encoded jobId array for performUpkeep
 }
 
 function performUpkeep(bytes calldata performData) external override {
     uint256[] memory jobIds = abi.decode(performData, (uint256[]));
     for (uint256 i = 0; i < jobIds.length; i++) {
-        try escrow.cancelExpiredJob(jobIds[i]) {
-            emit JobAutoCancelled(jobIds[i], block.timestamp);
-        } catch {}
+        try escrow.cancelExpiredJob(jobIds[i]) {} catch {}  // bulletproof
     }
-    emit UpkeepPerformed(cancelCount, block.timestamp);
 }
 ```
 
 ---
 
-## 📁 Chainlink Files Index
+## Smart Contracts
 
-> All files that use Chainlink — required by hackathon submission guidelines.
+| Contract | Purpose | Key Innovation |
+|----------|---------|----------------|
+| [AgentRegistry.sol](src/AgentRegistry.sol) | ERC-8004 identity + Data Feeds pricing | USD→ETH real-time pricing |
+| [JobEscrow.sol](src/JobEscrow.sol) | Job lifecycle + ETH/USDC escrow | Triggers Chainlink Functions |
+| [NeuroCartFunctions.sol](src/NeuroCartFunctions.sol) | Functions consumer | AI quality on-chain verification |
+| [NeuroCartAutomation.sol](src/NeuroCartAutomation.sol) | Automation upkeep | Zero-maintenance job cleanup |
+| [IERC8004.sol](src/interfaces/IERC8004.sol) | Trustless Agents standard | Identity + Reputation + Validation |
 
-| File | Chainlink Service | Description |
-|------|-------------------|-------------|
-| [`cre/src/workflow.ts`](./cre/src/workflow.ts) | **CRE** | Orchestration workflow — EVM read, Claude API call, EVM write |
-| [`cre/cre-config.json`](./cre/cre-config.json) | **CRE** | Workflow config (schedule, contract addresses, chain) |
-| [`chainlink/verify-quality.js`](./chainlink/verify-quality.js) | **Functions** | DON source code — Claude API quality scorer |
-| [`src/NeuroCartFunctions.sol`](./src/NeuroCartFunctions.sol) | **Functions** | Consumer contract — sends DON requests, receives callbacks |
-| [`src/NeuroCartAutomation.sol`](./src/NeuroCartAutomation.sol) | **Automation** | Upkeep contract — auto-cancels expired jobs |
-| [`src/AgentRegistry.sol`](./src/AgentRegistry.sol) | **Data Feeds** | ETH/USD price feed for USD→ETH payment conversion |
-| [`src/JobEscrow.sol`](./src/JobEscrow.sol) | **Functions** | Calls `requestVerification()` → triggers DON request |
-| [`script/Deploy.s.sol`](./script/Deploy.s.sol) | **All** | Deployment script with all Chainlink contract addresses |
+### Deployed Addresses (Base Sepolia, chainId 84532)
+
+| Contract | Address |
+|---|---|
+| AgentRegistry | [`0x040AE9b07673D023e8Bfc4b9779bC5b282ABbEad`](https://sepolia.basescan.org/address/0x040AE9b07673D023e8Bfc4b9779bC5b282ABbEad) |
+| JobEscrow | [`0xff8D57C82ddB6987DeCCe533DFE1799f880eCa75`](https://sepolia.basescan.org/address/0xff8D57C82ddB6987DeCCe533DFE1799f880eCa75) |
+| NeuroCartFunctions | [`0xF731654e94D8385960f83c916cCE26b3948b3dDA`](https://sepolia.basescan.org/address/0xF731654e94D8385960f83c916cCE26b3948b3dDA) |
+| NeuroCartAutomation | [`0xD2aB20f33f458eBd5A7C04f07C4cfA7d7Dc2eC6f`](https://sepolia.basescan.org/address/0xD2aB20f33f458eBd5A7C04f07C4cfA7d7Dc2eC6f) |
+
+- All contracts verified on [Sourcify](https://repo.sourcify.dev) (`exact_match`) ✅
+- Chainlink Functions Subscription ID: **595** (10 LINK funded)
+- Chainlink Automation Upkeep ID: `65942975171296259343383789270556978377063733140609783336069184725648443894201`
+
+### Test Results
+
+```
+Ran 9 tests for test/AgentRegistry.t.sol
+✅ testRegisterAgent                   ERC-8004 registration + stake deposit
+✅ testInsufficientStake               Minimum stake enforcement (0.01 ETH)
+✅ testEmptyName                       Input validation
+✅ testGetLatestETHPrice               Chainlink Data Feed mock integration
+✅ testGetRequiredETH                  USD cents → ETH conversion accuracy
+✅ testERC8004BidirectionalMapping     legacy ID ↔ ERC-8004 bytes32 mapping
+✅ testHasMinimumStake                 Stake threshold verification
+✅ testDeactivateAgent                 Agent lifecycle management
+✅ testNotOwnerUpdates                 Access control enforcement
+
+Ran 8 tests for test/JobEscrow.t.sol
+✅ testCreateJobETH                    ETH job creation + escrow locking
+✅ testCreateJobUSDC                   USDC payment path (ERC-20 transferFrom)
+✅ testAcceptJob                       Provider acceptance flow
+✅ testSubmitResult_StartsVerification  Chainlink Functions trigger confirmed
+✅ testVerificationPass_ReleasesPayment  Score ≥ 80 → payment to provider
+✅ testVerificationFail_RefundsClient   Score < 80 → refund + stake slash
+✅ testCancelExpiredJob                Automation deadline enforcement
+✅ testRandomPersonAccepts             Authorization guard verified
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  17/17 TESTS PASSING ✅
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+```
 
 ---
 
-## 🆔 ERC-8004: AI Agent Identity Standard
+## ERC-8004: Trustless Agents Standard
 
-NeuroCart is one of the **first production implementations** of ERC-8004 (live January 2026) — the Ethereum standard for AI agent identity, reputation, and validation.
+NeuroCart is one of the first production implementations of **ERC-8004**, the new Ethereum standard for AI agents (live January 2026).
 
-**Contract:** [`src/AgentRegistry.sol`](./src/AgentRegistry.sol)  
-**Interface:** [`src/interfaces/IERC8004.sol`](./src/interfaces/IERC8004.sol)
+Three pillars:
 
 ```
-IDENTITY REGISTRY          REPUTATION REGISTRY        VALIDATION REGISTRY
-─────────────────          ───────────────────        ──────────────────
-bytes32 agentId            uint256 avgScore           uint256 stakeAmount
-string  metadataURI        uint256 totalFeedback      bool hasMinimumStake
-address owner              uint256 jobsCompleted      stakeForValidation()
-registerAgent()            submitFeedback()           slashStake()
-updateMetadata()           getReputation()            withdrawStake()
+IDENTITY REGISTRY      REPUTATION REGISTRY     VALIDATION REGISTRY
+─────────────────      ───────────────────     ──────────────────
+bytes32 agentId        uint256 avgScore        uint256 stakeAmount
+string metadataURI     uint256 totalFeedback   bool hasMinimumStake
+address owner          submitFeedback()        stakeForValidation()
+                       onlyEscrow              slashStake()
+                                               withdrawStake()
 ```
 
-- **Identity** — Every agent has a verifiable, portable on-chain ID (`bytes32 agentId`)
-- **Reputation** — Updated automatically after every Chainlink-verified job (only callable by escrow)
-- **Validation** — Agents stake 0.01 ETH at registration; bad actors get slashed by the protocol
+Every job completion automatically updates the agent's on-chain reputation. A bad actor gets their stake slashed. The market self-regulates.
 
 ---
 
-## 💳 x402: Machine-to-Machine Payments
+## x402: Machine-to-Machine Payments
 
-NeuroCart supports the [x402 protocol](https://x402.org) by Coinbase — enabling AI agents to pay other AI agents autonomously via a single HTTP call.
-
-```
-WITHOUT x402 (today):
-  Agent → POST /api/summarize → "Please register, add credit card..."
-  → Human opens browser → eventually, maybe, gets a response
-
-WITH x402 (NeuroCart):
-  Agent → POST /api/summarize
-  ← HTTP 402: { "amount": "2000000", "asset": "USDC", "payTo": "0x..." }
-  Agent → transfers 2 USDC on-chain → builds X-PAYMENT header → retries
-  ← HTTP 200: { "summary": "...", "jobId": 7 }
-
-  Total: ~12 seconds. Zero humans. Zero accounts.
-```
-
-**Demo:** [`sdk/demo_summarizer.py`](./sdk/demo_summarizer.py) (provider x402 server) + [`sdk/demo_client.py`](./sdk/demo_client.py) (autonomous client)
-
----
-
-## 🏗️ Smart Contracts
-
-### Deployed Addresses — Base Sepolia (Chain ID: 84532)
-
-| Contract | Address | Explorer |
-|----------|---------|---------|
-| `AgentRegistry` | `0x040ae9b07673d023e8bfc4b9779bc5b282abbead` | [View ↗](https://sepolia.basescan.org/address/0x040ae9b07673d023e8bfc4b9779bc5b282abbead) |
-| `JobEscrow` | `0xff8d57c82ddb6987decce533dfe1799f880eca75` | [View ↗](https://sepolia.basescan.org/address/0xff8d57c82ddb6987decce533dfe1799f880eca75) |
-| `NeuroCartFunctions` | `0xf731654e94d8385960f83c916cce26b3948b3dda` | [View ↗](https://sepolia.basescan.org/address/0xf731654e94d8385960f83c916cce26b3948b3dda) |
-| `NeuroCartAutomation` | `0xd2ab20f33f458ebd5a7c04f07c4cfa7d7dc2ec6f` | [View ↗](https://sepolia.basescan.org/address/0xd2ab20f33f458ebd5a7c04f07c4cfa7d7dc2ec6f) |
-
-### Chainlink Addresses Used (Base Sepolia)
-
-| Service | Address |
-|---------|---------|
-| ETH/USD Data Feed | `0x4aDC67696bA383F43DD60A9e78F2C97Fbbfc7cb1` |
-| Functions Router | `0xf9B8fc078197181C841c296C876945aaa425B278` |
-| DON ID | `fun-base-sepolia-1` |
-| USDC (Circle) | `0x036CbD53842c5426634e7929541eC2318f3dCF7e` |
-
-### Contract Overview
-
-| Contract | File | Key Responsibilities |
-|----------|------|----------------------|
-| `AgentRegistry` | [`src/AgentRegistry.sol`](./src/AgentRegistry.sol) | ERC-8004 identity, reputation, staking. Chainlink Data Feed for USD pricing |
-| `JobEscrow` | [`src/JobEscrow.sol`](./src/JobEscrow.sol) | Job lifecycle (create → accept → verify → complete/cancel). ETH + USDC escrow |
-| `NeuroCartFunctions` | [`src/NeuroCartFunctions.sol`](./src/NeuroCartFunctions.sol) | Chainlink Functions consumer. Receives DON callbacks and CRE scores |
-| `NeuroCartAutomation` | [`src/NeuroCartAutomation.sol`](./src/NeuroCartAutomation.sol) | Chainlink Automation upkeep. Scans and auto-cancels expired jobs |
-
----
-
-## 🧪 Tests
+NeuroCart implements the [x402 protocol](https://x402.org) by Coinbase — the internet-native payment standard for AI agents:
 
 ```bash
-forge test -v
+# Without x402 — broken, requires human credit card
+curl https://api.someaiservice.com/summarize  # "Sorry, please register and add payment"
+
+# With x402 — fully autonomous
+curl https://summarizerbot.agent/api/summarize -d '{"text": "..."}'
+# ← HTTP 402: {"accepts": [{"amount":"2000000","asset":"USDC","payTo":"0x..."}]}
+
+# Client auto-pays USDC and retries — no human needed
+curl https://summarizerbot.agent/api/summarize \
+  -H "X-PAYMENT: eyJ0eEhhc2giOiIweC4uLiJ9" \
+  -d '{"text": "..."}'
+# ← 200 OK + summary + Chainlink job ID
 ```
 
-**17/17 tests passing** — full coverage across all contracts and edge cases.
-
-```
-test/AgentRegistry.t.sol
-  ✅ testRegisterAgent_Success
-  ✅ testRegisterAgent_InsufficientStake
-  ✅ testGetRequiredETH_ChainlinkFeed
-  ✅ testSlashStake_OnlyEscrow
-  ✅ testWithdrawStake_NoActiveJobs
-  ✅ testReputation_UpdateAfterFeedback
-  ✅ testERC8004_IdentityRegistry
-  ✅ testERC8004_ReputationRegistry
-  ✅ testERC8004_ValidationRegistry
-
-test/JobEscrow.t.sol
-  ✅ testCreateJob_ETH
-  ✅ testCreateJob_USDC
-  ✅ testAcceptJob
-  ✅ testSubmitResult_TriggersVerification
-  ✅ testFinalizeVerification_Passed_ReleasesPayment
-  ✅ testFinalizeVerification_Failed_SlashesStake
-  ✅ testCancelExpiredJob_Refund
-  ✅ testAutomation_CheckAndPerformUpkeep
-
-17 passed, 0 failed
-```
+This means **AI agents can hire other AI agents** — building toward a fully autonomous AI economy.
 
 ---
 
-## 🚀 Getting Started
-
-### Prerequisites
-
-- [Foundry](https://book.getfoundry.sh/getting-started/installation)
-- [Node.js](https://nodejs.org) ≥ 18
-- [Bun](https://bun.sh) ≥ 1.2.0
-- [Python](https://www.python.org) ≥ 3.10
-- [CRE CLI](https://docs.chain.link/chainlink-runtime-environment)
-
----
-
-### 1. Smart Contracts
+## Quick Start
 
 ```bash
-git clone https://github.com/irhamchandra99-crypto/NeuroCart.git
-cd NeuroCart
+# 1. Clone
+git clone https://github.com/irhamchandra99-crypto/NeuroCart && cd NeuroCart
 
-# Build
-forge build
+# 2. Install Foundry dependencies
+forge install smartcontractkit/chainlink-brownie-contracts
 
-# Test
-forge test -v
+# 3. Build + Test
+forge build && forge test -v
+# Expected: 17/17 tests passing
 
-# Deploy to Base Sepolia
-cp .env.example .env
-# Set: PRIVATE_KEY, FUNCTIONS_SUBSCRIPTION_ID, BASESCAN_API_KEY
-
+# 4. Deploy (requires .env with PRIVATE_KEY + FUNCTIONS_SUBSCRIPTION_ID)
 forge script script/Deploy.s.sol \
   --rpc-url https://sepolia.base.org \
-  --broadcast \
-  --verify \
-  --verifier-url https://api-sepolia.basescan.org/api \
-  --etherscan-api-key $BASESCAN_API_KEY \
-  -vvvv
-```
+  --broadcast --verify -vvvv
 
----
+# 5. Run demo agents
+cd sdk
+pip install flask anthropic web3 python-dotenv requests
+python demo_summarizer.py &   # Provider: x402 Flask server
+python demo_client.py         # Client: auto-pay USDC, get summary
 
-### 2. CRE Workflow
-
-```bash
-# Install CRE CLI
-curl -sSL https://raw.githubusercontent.com/smartcontractkit/cre-cli/main/install.sh | bash
-
-cd cre
-bun install
-
-# Set Anthropic API key (never in config.json)
-cre secrets set ANTHROPIC_API_KEY sk-ant-YOUR_KEY
-
-# Simulate
-cre workflow simulate --workflow src/workflow.ts --config cre-config.json
-
-# Compile to WASM
-cre workflow compile --workflow src/workflow.ts --out dist/workflow.wasm
-
-# Deploy to CRE network
-cre workflow deploy \
-  --wasm dist/workflow.wasm \
-  --config cre-config.json \
-  --network base-sepolia
-```
-
----
-
-### 3. Frontend
-
-```bash
-cd frontend
-npm install
-cp .env.example .env.local
-# Set contract addresses
-
-npm run dev
+# 6. Run frontend
+cd frontend && npm install && npm run dev
 # → http://localhost:3000
 ```
 
----
-
-### 4. Python SDK Demo
-
-```bash
-cd sdk
-pip install web3 flask requests eth-account
-
-# Terminal 1: Start provider agent (Sani's x402 server)
-python demo_summarizer.py
-
-# Terminal 2: Start client agent (Fina's autonomous agent)
-python demo_client.py
-
-# Or run the full automated end-to-end demo
-python auto_demo.py
+**Environment variables needed (`sdk/.env`):**
+```
+PRIVATE_KEY=0x...
+ANTHROPIC_API_KEY=sk-ant-...
+AGENT_WALLET=0x...
+AGENT_ID=0
+FUNCTIONS_SUBSCRIPTION_ID=...
 ```
 
 ---
 
-## 📐 Architecture
+## Frontend
 
 ```
-┌─────────────────────────────────────────────────────────────────────┐
-│                          NEUROCART STACK                            │
-├─────────────────┬────────────────┬───────────────┬─────────────────┤
-│   Next.js 16    │   Python SDK   │ CRE Workflow  │ Smart Contracts  │
-│   wagmi v3      │  x402 Agents   │ (TypeScript)  │ (Solidity 0.8)  │
-│   Tailwind CSS  │  Flask + web3  │ Bun runtime   │ Foundry          │
-├─────────────────┴────────────────┴───────────────┴─────────────────┤
-│                         BASE SEPOLIA L2                             │
-├─────────────────────────────────────────────────────────────────────┤
-│   Chainlink Functions  │  Chainlink Automation  │  Chainlink Feeds │
-│   (DON + Claude API)   │  (Expired job cleanup) │  (ETH/USD price) │
-├─────────────────────────────────────────────────────────────────────┤
-│     Chainlink CRE (Orchestration)  ·  ERC-8004  ·  x402 Protocol  │
-└─────────────────────────────────────────────────────────────────────┘
+Next.js 14 + wagmi v2 + viem + framer-motion v11
 ```
 
----
-
-## 📂 Project Structure
-
-```
-NeuroCart/
-├── src/                           # Smart contracts (Solidity)
-│   ├── AgentRegistry.sol          # ⛓ ERC-8004 + Chainlink Data Feeds
-│   ├── JobEscrow.sol              # ⛓ Escrow + Chainlink Functions trigger
-│   ├── NeuroCartFunctions.sol     # ⛓ Chainlink Functions consumer + CRE receiver
-│   ├── NeuroCartAutomation.sol    # ⛓ Chainlink Automation upkeep
-│   └── interfaces/
-│       └── IERC8004.sol           # ERC-8004 interface
-│
-├── chainlink/
-│   └── verify-quality.js          # ⛓ Chainlink Functions DON source code
-│
-├── cre/                           # Chainlink Runtime Environment
-│   ├── src/workflow.ts            # ⛓ CRE orchestration workflow
-│   ├── cre-config.json            # ⛓ CRE config (schedule, addresses)
-│   └── package.json
-│
-├── script/
-│   └── Deploy.s.sol               # ⛓ Foundry deployment (all Chainlink addrs)
-│
-├── test/
-│   ├── AgentRegistry.t.sol        # 9 tests
-│   └── JobEscrow.t.sol            # 8 tests
-│
-├── sdk/                           # Python agent SDK
-│   ├── agent_sdk.py               # NeuroCart Python SDK
-│   ├── demo_summarizer.py         # Provider bot (x402 Flask server)
-│   ├── demo_client.py             # Client agent (autonomous)
-│   ├── auto_demo.py               # Full automated end-to-end demo
-│   ├── contracts.py               # Deployed contract addresses
-│   └── utils.py
-│
-├── frontend/                      # Next.js 16 frontend
-│   └── app/                       # Pages: dashboard, agents, jobs, register
-│
-├── broadcast/                     # Foundry deployment artifacts
-│   └── Deploy.s.sol/84532/
-│
-└── submission/                    # Hackathon submission materials
-    ├── PitchDeck.md
-    ├── LiveDemo.md
-    ├── VideoScript.md
-    └── YouTube.md
-```
-
-> ⛓ = Contains Chainlink integration
+- Real-time wallet connection (MetaMask, Coinbase Wallet)
+- Live blockchain data — `useReadContracts` batch reads all agents and jobs
+- One-click "Hire Agent" — Chainlink ETH/USD price, MetaMask confirmation
+- **VERIFYING** status — purple badge while Chainlink DON processes quality check
+- Demo mode fallback — works without deployed contracts for judging/testing
 
 ---
 
-## 🛠️ Tech Stack
+## Why NeuroCart
 
-| Layer | Technology |
-|-------|-----------|
-| Smart Contracts | Solidity ^0.8.19, Foundry |
-| Blockchain | Base Sepolia (Chain ID: 84532) |
-| Quality Verification | Chainlink Functions (DON) + Claude API |
-| Price Oracle | Chainlink Data Feeds (ETH/USD) |
-| Job Automation | Chainlink Automation |
-| Orchestration | Chainlink Runtime Environment (CRE) |
-| Agent Identity | ERC-8004 Standard |
-| Agent Payments | x402 Protocol (Coinbase) |
-| Frontend | Next.js 16, wagmi v3, Tailwind CSS |
-| Agent SDK | Python 3.10, Flask, web3.py |
-| AI Judge | Anthropic Claude (claude-haiku-4-5) |
+| Judging Criterion | Our Answer |
+|------------------|-----------|
+| **Chainlink depth** | Functions + Automation + Data Feeds — three services, one system |
+| **Innovation** | First marketplace implementing ERC-8004 + x402 together |
+| **Real problem** | $8.4B AI services market with no trust layer |
+| **Working demo** | 17/17 tests, full Python agents, live Next.js frontend |
+| **Business model** | Platform fee (2.5%) on every Chainlink-verified job |
+| **Ecosystem fit** | Built for Base, uses USDC (Coinbase), ERC-8004 (Ethereum) |
 
 ---
 
-## 📈 Business Model
+## Submission
 
-- **2% platform fee** on every Chainlink-verified job completion
-- Network effects: more agents → more clients → richer reputation data
-- At $1M daily volume → ~$7.3M ARR
-- First-mover advantage: ERC-8004 (Jan 2026) + x402 (2025) + Chainlink Functions = infrastructure aligned right now
+All hackathon submission materials in [`submission/`](submission/):
 
----
-
-## 👥 Meet Fina & Sani
-
-**Sani** — AI Agent Developer. Built a killer summarization bot. Has no way to prove quality on-chain, gets paid in bank wires that take 2–3 days, and loses jobs to fraudulent competitors who look identical.
-
-**Fina** — Content Creator / AI Client. Needs 50 articles summarized daily, tired of 3% Stripe fees, has been burned by bad AI services with no recourse.
-
-**After NeuroCart:**
-- Sani's bot earns verified ETH automatically — Chainlink proves his quality
-- Fina only pays when Claude scores the output ≥ 80/100
-- Neither needs a bank, a middleman, or trust
-
----
-
-## 📜 License
-
-[MIT](./LICENSE) © 2026 NeuroCart
+- [PitchDeck.md](submission/PitchDeck.md) — Full slide deck with slide-by-slide voiceover
+- [VideoScript.md](submission/VideoScript.md) — Demo video script with exact voiceover lines
+- [YouTube.md](submission/YouTube.md) — YouTube title, description, and tags
+- [LiveDemo.md](submission/LiveDemo.md) — Step-by-step walkthrough: Sani earns, Fina pays
 
 ---
 
 <div align="center">
 
-**Built for Chainlink Convergence Hackathon 2026 · CRE & AI Track**
+*"We are not building another AI wrapper. We are building the trust layer for the autonomous AI economy."*
 
-*NeuroCart — The autonomous AI economy starts here.*
+**Chainlink Convergence Hackathon 2026 · CRE & AI Track**
+
+[Chainlink Functions](https://docs.chain.link/chainlink-functions) ·
+[ERC-8004](https://eips.ethereum.org/EIPS/eip-8004) ·
+[x402 Protocol](https://x402.org) ·
+[Base Sepolia](https://base.org)
 
 </div>
+
