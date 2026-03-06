@@ -124,7 +124,7 @@ function LiveFeed({ agents }: { agents: AgentUI[] }) {
   }, [agents]);
 
   return (
-    <div style={{ border: `1px solid ${T.border.default}`, background: T.bg.card }}>
+    <div style={{ border: `1px solid ${T.border.default}`, background: T.bg.card, borderRadius: "14px", overflow: "hidden" }}>
       <div style={{ padding: "14px 16px", borderBottom: `1px solid ${T.border.subtle}`, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
           <motion.div animate={{ opacity: [1, 0.3, 1] }} transition={{ duration: 1.5, repeat: Infinity }}
@@ -137,7 +137,7 @@ function LiveFeed({ agents }: { agents: AgentUI[] }) {
         <span style={{ fontSize: "9px", fontFamily: "monospace", color: T.text.disabled, letterSpacing: "0.12em" }}>REAL-TIME</span>
       </div>
 
-      <div style={{ maxHeight: "520px", overflowY: "auto" }}>
+      <div style={{ maxHeight: "520px", overflowY: "auto", scrollbarWidth: "thin", scrollbarColor: "#4ade8030 transparent" }}>
         {events.length === 0 ? (
           <div style={{ padding: "32px 16px", textAlign: "center", fontSize: "10px", color: T.text.disabled, fontFamily: "monospace", letterSpacing: "0.1em" }}>
             WAITING FOR ACTIVITY...
@@ -210,7 +210,7 @@ function HireModal({ agent, onClose, onSuccess }: { agent: AgentUI; onClose: () 
     >
       <motion.div initial={{ y: 40, opacity: 0 }} animate={{ y: 0, opacity: 1 }}
         exit={{ y: 40, opacity: 0 }} transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-        style={{ background: "#0a0a0a", border: `1px solid ${T.border.default}`, borderTop: `3px solid ${T.text.accent}`, padding: "40px", maxWidth: "520px", width: "100%" }}
+        style={{ background: "#0a0a0a", border: `1px solid ${T.border.default}`, borderTop: `3px solid ${T.text.accent}`, borderRadius: "20px", padding: "40px", maxWidth: "520px", width: "100%" }}
       >
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "32px" }}>
           <div>
@@ -223,19 +223,19 @@ function HireModal({ agent, onClose, onSuccess }: { agent: AgentUI; onClose: () 
         <label style={{ fontSize: "10px", letterSpacing: "0.2em", color: T.text.muted, display: "block", marginBottom: "8px", fontFamily: "monospace" }}>JOB DESCRIPTION</label>
         <textarea value={description} onChange={(e) => setDescription(e.target.value)}
           placeholder="Describe the task..." rows={4}
-          style={{ width: "100%", padding: "14px", background: "#0d0d0d", border: `1px solid ${T.border.default}`, borderTop: "2px solid #1a1a1a", color: T.text.primary, fontSize: "14px", resize: "vertical", fontFamily: "var(--font-space), sans-serif", boxSizing: "border-box", outline: "none", marginBottom: "20px" }}
+          style={{ width: "100%", padding: "14px", background: "#0d0d0d", border: `1px solid ${T.border.default}`, borderTop: "2px solid #1a1a1a", borderRadius: "10px", color: T.text.primary, fontSize: "14px", resize: "vertical", fontFamily: "var(--font-space), sans-serif", boxSizing: "border-box", outline: "none", marginBottom: "20px" }}
         />
 
         <label style={{ fontSize: "10px", letterSpacing: "0.2em", color: T.text.muted, display: "block", marginBottom: "8px", fontFamily: "monospace" }}>JOB TYPE</label>
         <select value={jobType} onChange={(e) => setJobType(e.target.value)}
-          style={{ width: "100%", padding: "12px 14px", background: "#0d0d0d", border: `1px solid ${T.border.default}`, color: T.text.primary, fontSize: "14px", fontFamily: "var(--font-space), sans-serif", boxSizing: "border-box", marginBottom: "24px" }}
+          style={{ width: "100%", padding: "12px 14px", background: "#0d0d0d", border: `1px solid ${T.border.default}`, color: T.text.primary, fontSize: "14px", fontFamily: "var(--font-space), sans-serif", boxSizing: "border-box", marginBottom: "24px", borderRadius: "10px" }}
         >
           {(agent.skills.length > 0 ? agent.skills : ["general"]).map((s) => (
             <option key={s} value={s} style={{ background: "#111" }}>{s}</option>
           ))}
         </select>
 
-        <div style={{ padding: "16px", marginBottom: "28px", background: "#0d0d0d", borderLeft: `3px solid ${T.text.accent}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div style={{ padding: "16px", marginBottom: "28px", background: "#0d0d0d", borderLeft: `3px solid ${T.text.accent}`, borderRadius: "10px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div>
             <div style={{ fontSize: "10px", letterSpacing: "0.15em", color: T.text.muted, fontFamily: "monospace" }}>PAYMENT · CHAINLINK ETH/USD</div>
             <div style={{ fontSize: "11px", color: T.text.secondary, marginTop: "4px" }}>{agent.priceDisplay} auto-converted</div>
@@ -245,7 +245,7 @@ function HireModal({ agent, onClose, onSuccess }: { agent: AgentUI; onClose: () 
 
         <motion.button whileTap={{ scale: 0.98 }} onClick={handleHire}
           disabled={isPending || isConfirming || !description.trim() || !ESCROW_ADDRESS}
-          style={{ width: "100%", padding: "16px", fontSize: "12px", fontWeight: 700, letterSpacing: "0.2em", cursor: isPending || isConfirming ? "not-allowed" : "pointer", background: isPending || isConfirming ? "#111" : T.text.accent, color: isPending || isConfirming ? T.text.disabled : "#000", border: "none", fontFamily: "monospace", opacity: !description.trim() || !ESCROW_ADDRESS ? 0.4 : 1, transition: `all ${T.motion.fast}` }}
+          style={{ width: "100%", padding: "16px", fontSize: "12px", fontWeight: 700, letterSpacing: "0.2em", cursor: isPending || isConfirming ? "not-allowed" : "pointer", background: isPending || isConfirming ? "#111" : T.text.accent, color: isPending || isConfirming ? T.text.disabled : "#000", border: "none", fontFamily: "monospace", opacity: !description.trim() || !ESCROW_ADDRESS ? 0.4 : 1, transition: `all ${T.motion.fast}`, borderRadius: "10px" }}
         >
           {isPending ? "CONFIRM IN WALLET..." : isConfirming ? "CONFIRMING..." : `CREATE JOB · ${ethDisplay}`}
         </motion.button>

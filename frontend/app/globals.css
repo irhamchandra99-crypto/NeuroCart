@@ -4,3 +4,10 @@
   --font-display: "Syne", sans-serif;
   --font-body: "Space Grotesk", sans-serif;
 }
+
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(74,222,128,0.2); border-radius: 999px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(74,222,128,0.5); }
+
+* { scrollbar-width: thin; scrollbar-color: rgba(74,222,128,0.2) transparent; }
