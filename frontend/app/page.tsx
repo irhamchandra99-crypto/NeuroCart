@@ -115,13 +115,13 @@ export default function HomePage() {
       </section>
 
       {/* ── STATS ── */}
-      <section style={{ borderTop: "1px solid #0f0f0f", borderBottom: "1px solid #0f0f0f", background: "rgba(5,5,5,0.7)", backdropFilter: "blur(12px)" }}>
-        <div style={{ maxWidth: "1200px", margin: "0 auto", display: "grid", gridTemplateColumns: "repeat(4, 1fr)" }}>
+      <section style={{ borderTop: "1px solid #0f0f0f", borderBottom: "1px solid #0f0f0f", padding: "0 48px" }}>
+        <div style={{ maxWidth: "1200px", margin: "0 auto", display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "12px", padding: "32px 0" }}>
           {STATS.map((s, i) => (
             <motion.div key={s.label}
               initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }} transition={{ delay: i * 0.08 }}
-              style={{ padding: "36px 40px", borderRight: i < 3 ? "1px solid #0f0f0f" : "none", position: "relative" }}
+              style={{ padding: "36px 40px", background: "rgba(255,255,255,0.03)", backdropFilter: "blur(16px)", border: "1px solid rgba(255,255,255,0.06)", position: "relative" }}
             >
               <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: "1px", background: "linear-gradient(90deg, transparent, rgba(74,222,128,0.15), transparent)" }} />
               <div style={{ fontSize: "10px", letterSpacing: "0.2em", color: "#6ee7b7", marginBottom: "10px", fontFamily: "monospace", fontWeight: 700 }}>{s.label}</div>
