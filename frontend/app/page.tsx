@@ -149,7 +149,7 @@ export default function HomePage() {
               <motion.div key={item.step}
                 initial={{ opacity: 0, x: -24 }} whileInView={{ opacity: 1, x: 0 }}
                 viewport={{ once: true }} transition={{ delay: i * 0.08 }}
-                style={{ display: "grid", gridTemplateColumns: "80px 1fr", gap: "32px", alignItems: "center", padding: "28px 32px", background: "rgba(255,255,255,0.03)", backdropFilter: "blur(16px)", border: `1px solid #6ee7b7`, borderLeft: `3px solid ${item.color}`, boxShadow: `inset 3px 0 12px ${item.color}40`, borderRadius: "12px" }}
+                style={{ display: "grid", gridTemplateColumns: "80px 1fr", gap: "32px", alignItems: "center", padding: "28px 32px", background: "rgba(255,255,255,0.03)", backdropFilter: "blur(16px)", border: `1px solid rgba(255,255,255,0.05)`, borderLeft: `3px solid ${item.color}`, boxShadow: `inset 3px 0 12px ${item.color}40`, borderRadius: "12px" }}
               >
                 <div style={{ fontSize: "32px", fontWeight: 900, fontFamily: "var(--font-syne), sans-serif", color: item.color, opacity: 0.85 }}>{item.step}</div>
                 <div>
