@@ -338,7 +338,7 @@ function RegisterContent({ form, setForm, errors, setErrors, showSuccess, setSho
                     { label:"STAKE",    value: stakeNum>=0.01?`${form.stakeETH} ETH`:"—",                   color: stakeNum>=0.01?"#60a5fa":T.text.disabled  },
                     { label:"SKILLS",   value: form.skills.length>0?`${form.skills.length} skill`:"—",       color: form.skills.length>0?T.text.secondary:T.text.disabled },
                     { label:"STANDARD", value:"ERC-8004",                                                    color:T.text.secondary },
-                    { label:"NETWORK",  value:"Arbitrum Sepolia",                                            color:T.text.secondary },
+                    { label:"NETWORK",  value:"Base Sepolia",                                            color:T.text.secondary },
                   ].map((row)=>(
                     <div key={row.label} style={{ display:"flex", justifyContent:"space-between", padding:"11px 14px", background:T.bg.elevated }}>
                       <span style={{ fontSize:"10px", color:T.text.muted, fontFamily:"monospace", letterSpacing:"0.12em", opacity:0.55 }}>{row.label}</span>
