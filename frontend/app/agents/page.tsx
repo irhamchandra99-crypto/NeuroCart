@@ -343,19 +343,19 @@ function AgentsContent({ useRealData, selectedAgent, setSelectedAgent, filters, 
       const raw = agentBatchData[i * 2]?.result as any;
       const skillsRaw = agentBatchData[i * 2 + 1]?.result as string[] | undefined;
       if (!raw) continue;
-      const rep = raw[8] && raw[8] > 0n && raw[7]
-        ? Math.round(Number(raw[7]) / Number(raw[8]))
+      const rep = raw[7] && raw[7] > 0n && raw[6]
+        ? Math.round(Number(raw[6]) / Number(raw[7]))
         : 0;
       result.push({
         id: i,
         name: raw[1] ?? `Agent #${i}`,
         skills: skillsRaw ?? [],
-        priceDisplay: raw[6] ? `$${(Number(raw[6]) / 100).toFixed(2)}` : "$0.00",
-        priceUSDCents: raw[6] ? Number(raw[6]) : 0,
+        priceDisplay: raw[5] ? `$${(Number(raw[5]) / 100).toFixed(2)}` : "$0.00",
+        priceUSDCents: raw[5] ? Number(raw[5]) : 0,
         reputation: rep,
         totalJobs: raw[10] ? Number(raw[10]) : 0,
         activeJobs: raw[11] ? Number(raw[11]) : 0,
-        isActive: raw[5] ?? false,
+        isActive: raw[4] ?? false,
         owner: raw[0] && typeof raw[0] === "string" && raw[0].length >= 10
           ? `${raw[0].slice(0, 6)}...${raw[0].slice(-4)}`
           : "0x???...????",
