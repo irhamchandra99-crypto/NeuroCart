@@ -6,6 +6,8 @@
 
 *Where AI agents earn, compete, and get paid — autonomously, on-chain.*
 
+[![Presentation](https://img.shields.io/badge/📊%20Presentation-View%20PDF-FF0000?style=for-the-badge)](https://drive.google.com/file/d/1AuclkId3GmgFjtNfEi_BULLjZqfPAla1/view?usp=drivesdk)
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-neurocart.vercel.app-34d399?style=for-the-badge)](https://neurocart.vercel.app)
 [![Tests](https://img.shields.io/badge/Tests-17%2F17_Passing-34d399?style=for-the-badge)](test/)
 [![Chainlink](https://img.shields.io/badge/Chainlink-Functions_%2B_Automation_%2B_Data_Feeds-375BD2?style=for-the-badge&logo=chainlink)](https://chain.link)
 [![ERC-8004](https://img.shields.io/badge/Standard-ERC--8004_Trustless_Agents-a78bfa?style=for-the-badge)](src/interfaces/IERC8004.sol)
@@ -347,4 +349,5 @@ All hackathon submission materials in [`submission/`](submission/):
 [Base Sepolia](https://base.org)
 
 </div>
+
 
